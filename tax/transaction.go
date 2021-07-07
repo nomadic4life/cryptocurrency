@@ -1,14 +1,11 @@
 package tax
 
 import (
-	"fmt"
 	"math"
 )
 
 func newTransaction(account *Account, trade Trade) *Transaction {
 	t := Transaction{}
-	fmt.Println("transaction: ", t)
-
 	t.OrderPair = trade.Pair
 	t.OrderType = trade.Type
 	t.OrderPrice = trade.Price
@@ -18,7 +15,6 @@ func newTransaction(account *Account, trade Trade) *Transaction {
 	t.OrderAmount = calcAmount(trade.Price, trade.Quantity, trade.Amount)
 	t.USDPriceValue = getUSDPrice(trade.Price, trade.Value, trade.Pair)
 	t.FeeAmount = calcFee(trade.Price, trade.Quantity, trade.Amount, trade.Fee)
-
 	return &t
 }
 
