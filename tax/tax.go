@@ -11,7 +11,7 @@ type Account struct {
 		CostBasesHistory   []CostBasisRecord
 	}
 
-	CostBasisAssetQueue []AssetTrade
+	CostBasisAssetQueue map[string][]AssetTrade
 }
 
 type Transaction struct {

@@ -2,6 +2,7 @@ package tax
 
 import (
 	"math"
+	"strings"
 )
 
 func newTransaction(account *Account, trade Trade) *Transaction {
@@ -63,4 +64,12 @@ func getUSDPrice(price, value float64, pair string) float64 {
 	} else {
 		return value
 	}
+}
+
+func (t *Transaction) quote() string {
+	return strings.Split(t.OrderPair, "/")[1]
+}
+
+func (t *Transaction) base() string {
+	return strings.Split(t.OrderPair, "/")[0]
 }
