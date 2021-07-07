@@ -1,6 +1,26 @@
 package tax
 
-import "fmt"
+import (
+	"fmt"
+)
+
+type trade struct {
+	symbol struct {
+		deduct string
+		append string
+	}
+	balance struct {
+		quote float64
+		base  float64
+	}
+	PNL           float64
+	unrealizedPNL float64
+	assetRecords  []int
+	queue         struct {
+		quote []AssetTrade
+		base  []AssetTrade
+	}
+}
 
 func NewAccount(capital float64) *Account {
 	account := Account{}
@@ -15,19 +35,30 @@ func NewAccount(capital float64) *Account {
 	return &account
 }
 
-func (a *Account) CreateTrade(t Trade) {
+func (a *Account) CreateTransaction(t Trade) {
+	transaction := newTransaction(a, t)
+	// trade := a.initTrade(transaction)
+	// a.outFlow(trade, transaction)
+	// a.inflow(trade, transaction)
+	// a.updateAccount(trade, transaction)
+	fmt.Println(transaction)
+}
+
+func (a *Account) initTrade(t Transaction) (ret trade) {
+	// ret.balance.quote = 0
+	// ret.balance.base = 0
+	// ret.PNL = a.Statement.PNL
+	// ret.unrealizedPNL = 0
+	// ret.queue.base = []
+	// ret.queue.quote = []
+	return ret
+}
+
+func (a *Account) outFlow(o trade, t Transaction) { // -> trade, transaction
 	fmt.Println(t)
 }
 
-func (a *Account) init(t Transaction) { // -> transaction
-	fmt.Println(t)
-}
-
-func (a *Account) outFlow(t Transaction) { // -> trade, transaction
-	fmt.Println(t)
-}
-
-func (a *Account) inflow(t Transaction) { // -> trade, transaction
+func (a *Account) inflow(o trade, t Transaction) { // -> trade, transaction
 	fmt.Println(t)
 }
 
@@ -39,11 +70,12 @@ func (a *Account) append(t Transaction) { // -> queue, trade, transaction
 	fmt.Println(t)
 }
 
-func (a *Account) updateAccount(t Transaction) { // -> trade, transaction
+func (a *Account) updateAccount(o trade, t Transaction) { // -> trade, transaction
 	fmt.Println(t)
 }
 
 func (a *Account) getID() int64 {
-	fmt.Println(len(a.Ledger.TransactionHistory))
+	// might be working, need to add a transaction to history to see if it works
+	fmt.Println("ID: ", a.Ledger.TransactionHistory, len(a.Ledger.TransactionHistory))
 	return int64(len(a.Ledger.TransactionHistory))
 }
