@@ -73,4 +73,5 @@ type Trade struct {
 	Quantity float64
 	Amount   float64
 	Value    float64
+	Fee      float64
 }
