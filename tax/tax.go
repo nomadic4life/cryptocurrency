@@ -56,8 +56,8 @@ type AssetTrade struct {
 	TransactionID
 	QuotePrice    float64
 	USDPriceValue float64
-	BaseAmount    float64
-	ChangeAmount  float64
+	BaseAmount    float64 // debit
+	ChangeAmount  float64 // credit
 }
 
 type TransactionID struct {
@@ -75,3 +75,5 @@ type Trade struct {
 	Value    float64
 	Fee      float64
 }
+
+// added comments that reflect the changes of amount going in and out of asset trade

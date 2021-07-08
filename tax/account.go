@@ -39,6 +39,10 @@ func NewAccount(capital float64) *Account {
 }
 
 func (a *Account) CreateTransaction(t Trade) {
+	// Concepts:
+	//    debit     /   credit
+	//    outflow   /   inflow
+	//    deduct    /   append
 	transaction := newTransaction(a, t)
 	trade := a.initTrade(transaction)
 	a.outFlow(trade, transaction)
@@ -69,6 +73,7 @@ func (a *Account) outFlow(o *trade, t *Transaction) { // -> trade, transaction
 
 		o.symbol.deduct = t.quote()
 		o.balance.quote -= t.OrderAmount
+		// a.deduct(o)
 
 		if t.quote() != "USD" {
 			// trade.amountDeducted = transaction[AMOUNT];
@@ -117,8 +122,30 @@ func (a *Account) inflow(o trade, t Transaction) { // -> trade, transaction
 	fmt.Println(t)
 }
 
-func (a *Account) deduct(t Transaction) { // -> trade
-	fmt.Println(t)
+func (a *Account) deduct(t *trade) (*[]AssetTrade, *[]AssetTrade) { // -> trade
+	fmt.Println("DEDUCT: ", "trade: ", t, "Cost Basis Asset Queue: ", a.CostBasisAssetQueue[t.symbol.deduct])
+	deductions := make([]AssetTrade, 0, 40)
+	records := append([]AssetTrade(nil), a.CostBasisAssetQueue[t.symbol.deduct]...)
+
+	for t.amountDeducted > 0 {
+		deductions = append(deductions, records[0])
+
+		if records[0].BaseAmount < t.amountDeducted {
+			t.amountDeducted -= records[0].BaseAmount
+			deductions[len(deductions)-1].ChangeAmount = records[0].BaseAmount
+			records = records[1:]
+		} else {
+			records[0].BaseAmount -= t.amountDeducted
+			deductions[len(deductions)-1].ChangeAmount = t.amountDeducted
+			t.amountDeducted = 0.0
+		}
+
+		if records[0].BaseAmount == 0 {
+			records = records[1:]
+		}
+
+	}
+	return &deductions, &records
 }
 
 func (a *Account) append(o trade, t Transaction) { // -> queue, trade, transaction
