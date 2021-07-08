@@ -30,9 +30,32 @@ func build(greeting string, f []func(*string)) {
 }
 
 func createID(entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
-	entry.TransactionID.From
-	entry.TransactionID.To
+	// from -> debited
+	// to -> credited
+	if asset != nil {
+		entry.TransactionID.From = asset.To
+	} else {
+		entry.TransactionID.From = transaction.TransactionID
+	}
 
+	entry.TransactionID.To = transaction.TransactionID
+}
+
+func executedPrice(entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
+	if transaction.OrderType == "BUY" {
+		if transaction.quote() == "USD" {
+
+		} else {
+
+		}
+
+	} else if transaction.OrderType == "BUY" {
+		if transaction.quote() == "USD" {
+
+		} else {
+
+		}
+	}
 }
 
 // build
