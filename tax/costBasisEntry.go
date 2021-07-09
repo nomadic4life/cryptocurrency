@@ -3,7 +3,6 @@ package tax
 import "fmt"
 
 func newCostBasisEntry(asset *AssetTrade, trade *trade, transaction *Transaction) *CostBasisEntry {
-	fmt.Println("asset in newCostBasisEntry", asset)
 	// middleware implementation
 	// create ID
 	// configue Excuted Price
@@ -14,13 +13,10 @@ func newCostBasisEntry(asset *AssetTrade, trade *trade, transaction *Transaction
 	// build("Hello World!", func(message string) { fmt.Println(message) })
 	cb := []builder{
 		createID,
-		executedPrice}
+		executedPrice,
+		updateChangeAmount}
 	return build(asset, trade, transaction, cb)
 }
-
-// func build(t *Transaction, f func(){}) {
-
-// }
 
 type exchange struct {
 	isBuy  func() currency
@@ -200,6 +196,69 @@ func executedPrice(index int, entry *CostBasisEntry, asset *AssetTrade, trade *t
 	entry.USDPriceExit = price[table["USD Price Exit"][index]]
 
 	fmt.Println("Executed Prices", entry)
+}
+
+func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
+	// bugged
+	// 0 -> transaction['Quote Amount'] - - - - - - - - - - - - - - [] 0
+	// 1 -> transaction['Quote Amount'] * this.lastUSDPrice() - - - [] 1
+	// 2 -> transaction['Base Quantity']  - - - - - - - - - - - - - [] 2 2 2
+	// 3 -> transaction['Base Quantity'] * this.lastQuotePrice()  - [] 3 3
+	// 4 -> transaction['Base Quantity'] * this.lastUSDPrice()  - - [] 4
+	// 5 -> item['Change Amount'] - - - - - - - - - - - - - - - - - [] 5 5 5
+	// 6 -> item['Change Amount'] * this.lastQuotePrice() - - - - - [] 6 6 6
+	// 7 -> item['Change Amount'] * this.lastUSDPrice()   - - - - - [] 7 7
+	// 8 -> this['Change Amount']['Quote Amount'] * this.lastUSDPrice() 8 8
+
+	value := [9]float64{
+		transaction.OrderAmount,
+		transaction.OrderAmount * entry.lastUSDPrice(),
+		transaction.OrderQuantity,
+		transaction.OrderQuantity * entry.lastQuotePrice(),
+		transaction.OrderQuantity * entry.lastUSDPrice(),
+		0.0,
+		0.0,
+		0.0,
+		0.0}
+
+	if asset != nil {
+		value[5] = asset.ChangeAmount
+		value[6] = asset.ChangeAmount * entry.lastQuotePrice()
+		value[7] = asset.ChangeAmount * entry.lastUSDPrice()
+		value[8] = entry.ChangeAmount.QuoteAmount * entry.lastUSDPrice()
+	}
+
+	var table map[string]map[int]int
+	table = make(map[string]map[int]int)
+	table["Base Quantity"] = map[int]int{7: 0, 1: 2, 5: 2, 2: 5, 4: 5, 6: 5}
+	table["Quote Amount"] = map[int]int{7: 2, 1: 3, 5: 3, 2: 6, 4: 6, 6: 6}
+	table["USDValue"] = map[int]int{7: 1, 1: 4, 2: 7, 4: 7, 5: 8, 6: 8}
+
+	entry.ChangeAmount.BaseQuantity = value[table["Base Quantity"][index]]
+	entry.ChangeAmount.QuoteAmount = value[table["Quote Amount"][index]]
+	entry.ChangeAmount.USDValue = value[table["USDValue"][index]]
+
+	fmt.Println("updated Change amount", entry)
+}
+
+// func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
+
+// }
+
+// func updateHoldings(index int, entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
+
+// }
+
+// func updatePNL(index int, entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
+
+// }
+
+func (e *CostBasisEntry) lastQuotePrice() float64 {
+	return 0.0
+}
+
+func (e *CostBasisEntry) lastUSDPrice() float64 {
+	return 0.0
 }
 
 // build
