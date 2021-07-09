@@ -8,7 +8,7 @@ type Account struct {
 	AssetsHoldings map[string]float64
 	Ledger         struct {
 		TransactionHistory []Transaction
-		CostBasesHistory   []CostBasisRecord
+		CostBasesHistory   []CostBasisEntry
 	}
 
 	CostBasisAssetQueue map[string][]AssetTrade
@@ -26,8 +26,8 @@ type Transaction struct {
 	FeeAmount     float64
 }
 
-type CostBasisRecord struct {
-	Transaction
+type CostBasisEntry struct {
+	TransactionID
 	QuotePriceEntry float64
 	QuotePriceExit  float64
 	USDPriceEntry   float64

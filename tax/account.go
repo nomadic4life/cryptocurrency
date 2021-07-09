@@ -17,7 +17,7 @@ type trade struct {
 	amountDeducted float64
 	PNL            float64
 	unrealizedPNL  float64
-	assetRecords   []int
+	assetRecords   []CostBasisEntry
 	queue          struct {
 		quote []AssetTrade
 		base  []AssetTrade
@@ -39,20 +39,22 @@ func NewAccount(capital float64) *Account {
 }
 
 func (a *Account) CreateTransaction(t Trade) {
+
 	// Concepts:
 	//    debit     /   credit
 	//    outflow   /   inflow
 	//    deduct    /   append
 	transaction := newTransaction(a, t)
 	trade := a.initTrade(transaction)
+
 	a.outFlow(trade, transaction)
 	//	-> deduct()
 	//	-> newCostBasisRecord()
-	// a.inflow(trade, transaction)
+	a.inflow(trade, transaction)
 	//	-> append()
 	//	-> newCostBasisRecord()
 	a.updateAccount(trade, transaction)
-	fmt.Println("create transaction: ", transaction, trade)
+	// fmt.Println("create transaction: ", transaction, trade)
 }
 
 func (a *Account) initTrade(t *Transaction) *trade {
@@ -76,6 +78,7 @@ func (a *Account) outFlow(o *trade, t *Transaction) { // -> trade, transaction
 		// a.deduct(o)
 
 		if t.quote() != "USD" {
+
 			// trade.amountDeducted = transaction[AMOUNT];
 			o.amountDeducted = t.OrderAmount
 
@@ -118,8 +121,29 @@ func (a *Account) outFlow(o *trade, t *Transaction) { // -> trade, transaction
 
 }
 
-func (a *Account) inflow(o trade, t Transaction) { // -> trade, transaction
+func (a *Account) inflow(o *trade, t *Transaction) { // -> trade, transaction
 	fmt.Println(t)
+	fmt.Println("   \n:INFLOW:  ")
+
+	if t.OrderType == "BUY" {
+		o.balance.base += t.OrderQuantity
+		o.symbol.append = t.base()
+		item := newCostBasisEntry(nil, o, t)
+		fmt.Println(item)
+		// o.symbol.base = t.base();
+		// o.records = append(o.records, a.append(o.queue.base, t, o))
+	}
+
+	if t.OrderType == "SELL" {
+		o.balance.quote += t.OrderAmount
+
+		if t.quote() != "USD" {
+			// hasn't been tested could be bugged
+			o.symbol.append = t.quote()
+			// trade.quoteSymbol = t.quote();
+			// trade.records.push(this.append(trade.quoteQueue, transaction, trade));
+		}
+	}
 }
 
 func (a *Account) deduct(t *trade) (*[]AssetTrade, *[]AssetTrade) { // -> trade
@@ -148,10 +172,18 @@ func (a *Account) deduct(t *trade) (*[]AssetTrade, *[]AssetTrade) { // -> trade
 	return &deductions, &records
 }
 
-func (a *Account) append(o trade, t Transaction) { // -> queue, trade, transaction
-	fmt.Println(t)
+// func (a *Account) append(queue *AssetTrade, o *trade, t *Transaction) *CostBasisEntry { // -> queue, trade, transaction
+// 	fmt.Println(t)
+//   results := newCostBasisRecord(a, nil, o, t)
 
-}
+//   queue = a.append(queue, AssetTrade{
+//     results.TransactionID,
+//     results.QuotePriceEntry,
+//     results.USDPriceEntry,
+//     results.BalanceRemaining.BaseAmount[1]})
+//   return results
+
+// }
 
 func (a *Account) updateAccount(o *trade, t *Transaction) { // -> trade, transaction
 	if _, ok := a.CostBasisAssetQueue[t.base()]; ok {
