@@ -199,16 +199,6 @@ func executedPrice(index int, entry *CostBasisEntry, asset *AssetTrade, trade *t
 }
 
 func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
-	// bugged
-	// 0 -> transaction['Quote Amount'] - - - - - - - - - - - - - - [] 0
-	// 1 -> transaction['Quote Amount'] * this.lastUSDPrice() - - - [] 1
-	// 2 -> transaction['Base Quantity']  - - - - - - - - - - - - - [] 2 2 2
-	// 3 -> transaction['Base Quantity'] * this.lastQuotePrice()  - [] 3 3
-	// 4 -> transaction['Base Quantity'] * this.lastUSDPrice()  - - [] 4
-	// 5 -> item['Change Amount'] - - - - - - - - - - - - - - - - - [] 5 5 5
-	// 6 -> item['Change Amount'] * this.lastQuotePrice() - - - - - [] 6 6 6
-	// 7 -> item['Change Amount'] * this.lastUSDPrice()   - - - - - [] 7 7
-	// 8 -> this['Change Amount']['Quote Amount'] * this.lastUSDPrice() 8 8
 
 	value := [9]float64{
 		transaction.OrderAmount,
@@ -254,11 +244,17 @@ func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetTrade, tra
 // }
 
 func (e *CostBasisEntry) lastQuotePrice() float64 {
-	return 0.0
+	if e.QuotePriceExit != 0 {
+		return e.QuotePriceExit
+	}
+	return e.QuotePriceEntry
 }
 
 func (e *CostBasisEntry) lastUSDPrice() float64 {
-	return 0.0
+	if e.USDPriceExit != 0 {
+		return e.USDPriceExit
+	}
+	return e.QuotePriceEntry
 }
 
 // build
