@@ -2,7 +2,7 @@ package tax
 
 import "fmt"
 
-func newCostBasisEntry(asset *AssetTrade, trade *tradeLog, transaction *Transaction) *CostBasisEntry {
+func newCostBasisEntry(asset *AssetTrade, log *tradeLog, transaction *Transaction) *CostBasisEntry {
 	// middleware implementation
 	// create ID
 	// configue Excuted Price
@@ -16,7 +16,7 @@ func newCostBasisEntry(asset *AssetTrade, trade *tradeLog, transaction *Transact
 		executedPrice,
 		updateChangeAmount,
 		updateBalanceRemaining}
-	return build(asset, trade, transaction, cb)
+	return build(asset, log, transaction, cb)
 }
 
 type exchange struct {

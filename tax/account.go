@@ -87,7 +87,7 @@ func (a *Account) initLog(t *Transaction) *tradeLog {
 	return &log
 }
 
-func (a *Account) outFlow(log *tradeLog, t *Transaction) { // -> trade, transaction
+func (a *Account) outFlow(log *tradeLog, t *Transaction) {
 	fmt.Println("	\n::OUTFLOW::	")
 
 	if t.OrderType == "BUY" {
@@ -123,28 +123,29 @@ func (a *Account) outFlow(log *tradeLog, t *Transaction) { // -> trade, transact
 		log.symbol.deduct = t.base()
 
 		// trade.baseBalance -= transaction[QUANTITY];
-		log.balance.base -= t.OrderAmount
+		log.balance.base -= t.OrderQuantity
 
 		// trade.amountDeducted = transaction[QUANTITY];
+		// log.balance.deduct = t.OrderQuantity
 		log.amountDeducted = t.OrderQuantity
 
 		// const [deductions, record] = this.deduct(trade);
 		deductions, record := a.deduct(log)
-		fmt.Println("deduct: ", deductions, "record", record)
+		// test := *deductions
+		// fmt.Println("deduct: ", test[0], "record", record)
 
 		// trade.baseQueue = [...record];
-		// copy(log.queue.base, record)
+		// log.queue.base = *record
+		copy(log.queue.base, *record)
 
 		// trade.records.push(...deductions.map(item => new CostBasisRecord(account, item, transaction, trade)));
-		// for i := 0; i < len(deductions); i++ {
-		// 		log.records.append(newCostBasisRecord(deduction[i], t, o))
-		// }
-
+		for i := 0; i < len(deductions); i++ {
+			log.assetRecords = append(log.assetRecords, *newCostBasisEntry(&deductions[i], log, t))
+		}
 	}
-
 }
 
-func (a *Account) inflow(log *tradeLog, t *Transaction) { // -> trade, transaction
+func (a *Account) inflow(log *tradeLog, t *Transaction) {
 	fmt.Println("   \n:INFLOW:  ")
 
 	if t.OrderType == "BUY" {
@@ -154,7 +155,6 @@ func (a *Account) inflow(log *tradeLog, t *Transaction) { // -> trade, transacti
 		// log.symbol.base = t.base()
 		log.assetRecords = append(log.assetRecords, a.append(&log.queue.base, log, t))
 	}
-	fmt.Println("TEST:")
 
 	if t.OrderType == "SELL" {
 		log.balance.quote += t.OrderAmount
@@ -168,22 +168,22 @@ func (a *Account) inflow(log *tradeLog, t *Transaction) { // -> trade, transacti
 	}
 }
 
-func (a *Account) deduct(t *tradeLog) (*[]AssetTrade, *[]AssetTrade) { // -> trade
-	fmt.Println("DEDUCT: ", "trade: ", t, "Cost Basis Asset Queue: ", a.CostBasisAssetQueue[t.symbol.deduct])
-	deductions := make([]AssetTrade, 0, 40)
-	records := append([]AssetTrade(nil), a.CostBasisAssetQueue[t.symbol.deduct]...)
+func (a *Account) deduct(log *tradeLog) ([]AssetTrade, *[]AssetTrade) { // -> trade
 
-	for t.amountDeducted > 0 {
+	deductions := make([]AssetTrade, 0, 40)
+	records := append([]AssetTrade(nil), a.CostBasisAssetQueue[log.symbol.deduct]...)
+
+	for log.amountDeducted > 0 {
 		deductions = append(deductions, records[0])
 
-		if records[0].BaseAmount < t.amountDeducted {
-			t.amountDeducted -= records[0].BaseAmount
+		if records[0].BaseAmount < log.amountDeducted {
+			log.amountDeducted -= records[0].BaseAmount
 			deductions[len(deductions)-1].ChangeAmount = records[0].BaseAmount
 			records = records[1:]
 		} else {
-			records[0].BaseAmount -= t.amountDeducted
-			deductions[len(deductions)-1].ChangeAmount = t.amountDeducted
-			t.amountDeducted = 0.0
+			records[0].BaseAmount -= log.amountDeducted
+			deductions[len(deductions)-1].ChangeAmount = log.amountDeducted
+			log.amountDeducted = 0.0
 		}
 
 		if records[0].BaseAmount == 0 {
@@ -191,13 +191,13 @@ func (a *Account) deduct(t *tradeLog) (*[]AssetTrade, *[]AssetTrade) { // -> tra
 		}
 
 	}
-	return &deductions, &records
+	return deductions, &records
 }
 
-func (a *Account) append(queue *[]AssetTrade, log *tradeLog, t *Transaction) CostBasisEntry { // -> queue, trade, transaction
+func (a *Account) append(queue *[]AssetTrade, log *tradeLog, transaction *Transaction) CostBasisEntry {
 
-	entry := newCostBasisEntry(nil, log, t)
-	fmt.Println("append 1", queue, log.queue)
+	entry := newCostBasisEntry(nil, log, transaction)
+
 	asset := AssetTrade{
 		TransactionID: entry.TransactionID,
 		QuotePrice:    entry.QuotePriceEntry,
@@ -205,14 +205,13 @@ func (a *Account) append(queue *[]AssetTrade, log *tradeLog, t *Transaction) Cos
 		BaseAmount:    entry.BalanceRemaining.BaseAmount[1]}
 
 	*queue = append(*queue, asset)
-	fmt.Println("append 2", queue, log.queue)
-	return *entry
 
+	return *entry
 }
 
-func (a *Account) updateAccount(log *tradeLog, t *Transaction) { // -> trade, transaction
+func (a *Account) updateAccount(log *tradeLog, transaction *Transaction) {
 	fmt.Println("update account: Log", log)
-	fmt.Println("update account: Transaction ", t)
+	fmt.Println("update account: Transaction ", transaction)
 
 	// if _, ok := a.CostBasisAssetQueue[t.base()]; ok == false {
 	// 	a.CostBasisAssetQueue[t.base()] = make([]AssetTrade, 0, 10)
@@ -221,18 +220,16 @@ func (a *Account) updateAccount(log *tradeLog, t *Transaction) { // -> trade, tr
 	// 	a.CostBasisAssetQueue[t.quote()] = make([]AssetTrade, 0, 10)
 	// }
 
-	a.Ledger.TransactionHistory = append(a.Ledger.TransactionHistory, *t)
+	a.Ledger.TransactionHistory = append(a.Ledger.TransactionHistory, *transaction)
 	a.Ledger.CostBasesHistory = append(a.Ledger.CostBasesHistory, log.assetRecords...)
 
-	a.AssetsHoldings[t.base()] = log.balance.base
-	a.AssetsHoldings[t.quote()] = log.balance.quote
+	a.AssetsHoldings[transaction.base()] = log.balance.base
+	a.AssetsHoldings[transaction.quote()] = log.balance.quote
 
-	a.CostBasisAssetQueue[t.base()] = log.queue.base
-	if t.quote() != "USD" {
-		a.CostBasisAssetQueue[t.quote()] = log.queue.quote
+	a.CostBasisAssetQueue[transaction.base()] = log.queue.base
+	if transaction.quote() != "USD" {
+		a.CostBasisAssetQueue[transaction.quote()] = log.queue.quote
 	}
-
-	// fmt.Println(t.base(), log.balance.base, t.quote(), log.balance.quote)
 }
 
 func (a *Account) getID() int64 {
@@ -255,4 +252,17 @@ func (a *Account) log() {
 	fmt.Println("LEDGER -> COST BASIS:", a.Ledger.CostBasesHistory)
 	fmt.Println("COST BASIS ASSET QUEUE:", a.CostBasisAssetQueue)
 	fmt.Print("\n")
+}
+
+func (l *tradeLog) log() {
+	fmt.Println("\t symbol: ->  deduct:", l.symbol.deduct)
+	fmt.Println("\t symbol: ->  append:", l.symbol.append)
+	fmt.Println("\t balance: ->  quote:", l.balance.quote)
+	fmt.Println("\t balance: ->  base:", l.balance.base)
+	fmt.Println("\t amount deducted:", l.amountDeducted)
+	fmt.Println("\t PNL:", l.PNL)
+	fmt.Println("\t unrealizedPNL:", l.unrealizedPNL)
+	fmt.Println("\t assetRecords:", l.assetRecords)
+	fmt.Println("\t queue: -> quote", l.queue.quote)
+	fmt.Println("\t queue: -> base", l.queue.base)
 }
