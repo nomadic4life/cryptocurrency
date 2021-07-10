@@ -14,7 +14,8 @@ func newCostBasisEntry(asset *AssetTrade, trade *trade, transaction *Transaction
 	cb := []builder{
 		createID,
 		executedPrice,
-		updateChangeAmount}
+		updateChangeAmount,
+		updateBalanceRemaining}
 	return build(asset, trade, transaction, cb)
 }
 
@@ -231,17 +232,93 @@ func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetTrade, tra
 	fmt.Println("updated Change amount", entry)
 }
 
-// func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
+func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
+	oldValue := 0
+	newValue := 1
 
-// }
+	if index == 1 {
 
-// func updateHoldings(index int, entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
+		//      -- BALANCE REMAINING --
+		entry.BalanceRemaining.BaseAmount[oldValue] = 0
+		entry.BalanceRemaining.BaseAmount[newValue] = entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
+		entry.BalanceRemaining.USDValue = entry.BalanceRemaining.BaseValue
 
-// }
+	} else if index == 2 {
 
-// func updatePNL(index int, entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
+		//      -- BALANCE REMAINING --
+		entry.BalanceRemaining.BaseAmount[oldValue] = asset.BaseAmount
+		entry.BalanceRemaining.BaseAmount[newValue] = entry.BalanceRemaining.BaseAmount[oldValue] - entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
+		entry.BalanceRemaining.USDValue = entry.BalanceRemaining.BaseValue
 
-// }
+	} else if index == 4 {
+
+		//      -- BALANCE REMAINING --
+		entry.BalanceRemaining.BaseAmount[oldValue] = asset.BaseAmount
+		entry.BalanceRemaining.BaseAmount[newValue] = entry.BalanceRemaining.BaseAmount[oldValue] - entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
+		entry.BalanceRemaining.USDValue = entry.USDPriceEntry * entry.BalanceRemaining.BaseValue
+
+	} else if index == 5 {
+
+		//      -- BALANCE REMAINING --
+		entry.BalanceRemaining.BaseAmount[oldValue] = 0
+		entry.BalanceRemaining.BaseAmount[newValue] = entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
+		entry.BalanceRemaining.USDValue = entry.USDPriceEntry * entry.BalanceRemaining.BaseValue
+
+	} else if index == 6 {
+
+		//      -- BALANCE REMAINING --
+		entry.BalanceRemaining.BaseAmount[oldValue] = asset.BaseAmount
+		entry.BalanceRemaining.BaseAmount[newValue] = entry.BalanceRemaining.BaseAmount[oldValue] - entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
+		entry.BalanceRemaining.USDValue = entry.USDPriceEntry * entry.BalanceRemaining.BaseValue
+
+	} else if index == 7 {
+
+		//      -- BALANCE REMAINING --
+		entry.BalanceRemaining.BaseAmount[oldValue] = 0
+		entry.BalanceRemaining.BaseAmount[newValue] = entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
+		entry.BalanceRemaining.USDValue = entry.BalanceRemaining.BaseValue
+
+	}
+	fmt.Println("updated Balance Remaining", entry, index)
+}
+
+func updateHoldings(index int, entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
+
+}
+
+func updatePNL(index int, entry *CostBasisEntry, asset *AssetTrade, trade *trade, transaction *Transaction) {
+
+	// isAppend [1, 5, 7]
+	// isDeduct isUSD [2]
+	// isDeduct isCrypto isBuy [4]
+	// isDeduct isCrypto isSell [6]
+
+	if index == 1 || index == 5 || index == 7 {
+		entry.PNL.Amount = 0
+		entry.PNL.Total = 0
+
+	} else {
+		// doesn't account for fee amount
+		entry.PNL.Amount = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.BaseQuantity) // - (transaction.fee || 0);
+		if index == 2 {
+			entry.PNL.Total = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.BaseQuantity) // - (transaction.fee || 0)
+		} else if index == 4 {
+			entry.PNL.Total = entry.ChangeAmount.USDValue - (entry.QuotePriceEntry * entry.ChangeAmount.BaseQuantity * entry.USDPriceEntry) // - (transaction.fee || 0)
+		} else if index == 6 {
+			entry.PNL.Total = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.BaseQuantity) // - (transaction.fee || 0)
+		}
+
+	}
+
+	// asset.PNL +=
+	// this['P & L']['USD Total'] = trade.profitAndLoss;
+}
 
 func (e *CostBasisEntry) lastQuotePrice() float64 {
 	if e.QuotePriceExit != 0 {
