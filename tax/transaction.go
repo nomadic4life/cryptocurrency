@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func newTransaction(account *Account, trade Trade) *Transaction {
+func newTransaction(account *Account, trade TradeInput) *Transaction {
 	t := Transaction{}
 	t.OrderPair = trade.Pair
 	t.OrderType = trade.Type

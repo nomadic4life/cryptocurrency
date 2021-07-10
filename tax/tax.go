@@ -65,7 +65,7 @@ type TransactionID struct {
 	To   int64
 }
 
-type Trade struct {
+type TradeInput struct { // InitTrade, TradeInput
 	Date     int64
 	Pair     string
 	Type     string
@@ -77,3 +77,23 @@ type Trade struct {
 }
 
 // added comments that reflect the changes of amount going in and out of asset trade
+
+// type trade struct {
+// 	symbol struct {
+// 		deduct string
+// 		append string
+// 	}
+// 	balance struct {
+// 		deduct float64
+// 		quote  float64
+// 		base   float64
+// 	}
+// 	amountDeducted float64
+// 	PNL            float64
+// 	unrealizedPNL  float64
+// 	assetRecords   []CostBasisEntry
+// 	queue          struct {
+// 		quote []AssetTrade
+// 		base  []AssetTrade
+// 	}
+// }
