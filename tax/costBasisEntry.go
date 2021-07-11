@@ -2,7 +2,7 @@ package tax
 
 import "fmt"
 
-func newCostBasisEntry(asset *AssetTrade, log *tradeLog, transaction *Transaction) *CostBasisEntry {
+func newCostBasisEntry(asset *AssetTrade, log *tradeLog) *CostBasisEntry {
 	// middleware implementation
 	// create ID
 	// configue Excuted Price
@@ -16,7 +16,7 @@ func newCostBasisEntry(asset *AssetTrade, log *tradeLog, transaction *Transactio
 		executedPrice,
 		updateChangeAmount,
 		updateBalanceRemaining}
-	return build(asset, log, transaction, cb)
+	return build(asset, log, &log.ledger.transaction, cb)
 }
 
 type exchange struct {
@@ -34,7 +34,7 @@ type action struct {
 	isDeduct func() bool
 }
 
-type builder func(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *Transaction)
+type builder func(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *TransactionEntry)
 
 func checkCondition(orderType, orderPair string, asset *AssetTrade) exchange {
 	result := false
@@ -112,7 +112,7 @@ func checkCondition(orderType, orderPair string, asset *AssetTrade) exchange {
 		isSell}
 }
 
-func build(asset *AssetTrade, log *tradeLog, transaction *Transaction, cb []builder) *CostBasisEntry {
+func build(asset *AssetTrade, log *tradeLog, transaction *TransactionEntry, cb []builder) *CostBasisEntry {
 	entry := CostBasisEntry{}
 	check := checkCondition(transaction.OrderType, transaction.quote(), asset)
 	index := 0
@@ -150,7 +150,7 @@ func build(asset *AssetTrade, log *tradeLog, transaction *Transaction, cb []buil
 	return &entry
 }
 
-func createID(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *Transaction) {
+func createID(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *TransactionEntry) {
 	// from -> debited
 	// to -> credited
 	if asset != nil {
@@ -160,11 +160,9 @@ func createID(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog
 	}
 
 	entry.TransactionID.To = transaction.TransactionID
-
-	fmt.Println("created ID", entry)
 }
 
-func executedPrice(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *Transaction) {
+func executedPrice(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *TransactionEntry) {
 
 	// return 0 -> [1, 5, 7], [], [1, 5, 7], []
 	// return transaction.OrderPrice -> [1, 5], [2, 6], [], []
@@ -195,11 +193,9 @@ func executedPrice(index int, entry *CostBasisEntry, asset *AssetTrade, log *tra
 	entry.QuotePriceExit = price[table["Quote Price Exit"][index]]
 	entry.USDPriceEntry = price[table["USD Price Entry"][index]]
 	entry.USDPriceExit = price[table["USD Price Exit"][index]]
-
-	fmt.Println("Executed Prices", entry)
 }
 
-func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *Transaction) {
+func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *TransactionEntry) {
 
 	value := [9]float64{
 		transaction.OrderAmount,
@@ -220,11 +216,6 @@ func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetTrade, log
 		// value[8] = entry.ChangeAmount.QuoteAmount * entry.lastUSDPrice()
 	}
 
-	if asset != nil {
-		fmt.Println("change amount in change amount:", asset.ChangeAmount)
-	}
-	// fmt.Println(transaction)
-
 	var table map[string]map[int]int
 	table = make(map[string]map[int]int)
 	table["Base Quantity"] = map[int]int{7: 0, 1: 2, 5: 2, 2: 5, 4: 5, 6: 5}
@@ -234,12 +225,9 @@ func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetTrade, log
 	entry.ChangeAmount.BaseQuantity = value[table["Base Quantity"][index]]
 	entry.ChangeAmount.QuoteAmount = value[table["Quote Amount"][index]]
 	entry.ChangeAmount.USDValue = value[table["USDValue"][index]]
-
-	fmt.Println("updated Change amount", entry)
-	fmt.Println(transaction, entry.lastQuotePrice(), entry.lastUSDPrice(), index)
 }
 
-func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *Transaction) {
+func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *TransactionEntry) {
 	oldValue := 0
 	newValue := 1
 
@@ -293,14 +281,13 @@ func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetTrade,
 		entry.BalanceRemaining.USDValue = entry.BalanceRemaining.BaseValue
 
 	}
-	fmt.Println("updated Balance Remaining", entry, index)
 }
 
-func updateHoldings(index int, entry *CostBasisEntry, asset *AssetTrade, trade *tradeLog, transaction *Transaction) {
+func updateHoldings(index int, entry *CostBasisEntry, asset *AssetTrade, trade *tradeLog, transaction *TransactionEntry) {
 
 }
 
-func updatePNL(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *Transaction) {
+func updatePNL(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *TransactionEntry) {
 
 	// isAppend [1, 5, 7]
 	// isDeduct isUSD [2]

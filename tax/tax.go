@@ -5,16 +5,17 @@ type Account struct {
 		TotalCapital float64
 		PNL          float64
 	}
-	AssetsHoldings map[string]float64
-	Ledger         struct {
-		TransactionHistory []Transaction
-		CostBasesHistory   []CostBasisEntry
+	Assets struct {
+		Holdings            map[string]float64
+		CostBasisAssetQueue map[string][]AssetTrade
 	}
-
-	CostBasisAssetQueue map[string][]AssetTrade
+	Ledger struct {
+		Transactions []TransactionEntry
+		CostBases    []CostBasisEntry
+	}
 }
 
-type Transaction struct {
+type TransactionEntry struct {
 	TransactionID int64
 	Date          int64
 	OrderPair     string
