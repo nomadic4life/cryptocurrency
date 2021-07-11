@@ -164,6 +164,7 @@ func (a *Account) inflow(log *tradeLog, t *Transaction) {
 			log.symbol.append = t.quote()
 			// trade.quoteSymbol = t.quote();
 			// trade.records.push(this.append(trade.quoteQueue, transaction, trade));
+			log.assetRecords = append(log.assetRecords, a.append(&log.queue.quote, log, t))
 		}
 	}
 }
@@ -251,12 +252,35 @@ func (a *Account) log() {
 	fmt.Println("ASSETHOLDINGS:", a.AssetsHoldings)
 	fmt.Println("LEDGER -> TRANSACTION:")
 	for i := 0; i < len(a.Ledger.TransactionHistory); i++ {
-		fmt.Println("\t", a.Ledger.TransactionHistory[i])
+		// fmt.Println("\t", a.Ledger.TransactionHistory[i])
+		fmt.Print("\t", "ID: ", a.Ledger.TransactionHistory[i].TransactionID)
+		fmt.Print("\t", "DATE: ", a.Ledger.TransactionHistory[i].Date)
+		fmt.Print("\t\t", "PAIR: ", a.Ledger.TransactionHistory[i].OrderPair)
+		fmt.Print("\t\t", "TYPE: ", a.Ledger.TransactionHistory[i].OrderType)
+		fmt.Print("\t", "PRICE: ", a.Ledger.TransactionHistory[i].OrderPrice)
+		fmt.Print("\t", "QUANTITY: ", a.Ledger.TransactionHistory[i].OrderQuantity)
+		fmt.Print("\t", "AMOUNT: ", a.Ledger.TransactionHistory[i].OrderAmount)
+		fmt.Print("\t", "VALUE: ", a.Ledger.TransactionHistory[i].USDPriceValue)
+		fmt.Print("\n")
+
 	}
 
+	fmt.Print("\n")
 	fmt.Println("LEDGER -> COST BASIS:")
 	for i := 0; i < len(a.Ledger.CostBasesHistory); i++ {
-		fmt.Println("\t", a.Ledger.CostBasesHistory[i])
+		fmt.Print("\t", "ID ->: ", a.Ledger.CostBasesHistory[i].TransactionID.From)
+		fmt.Print("", " - ", a.Ledger.CostBasesHistory[i].TransactionID.To)
+		fmt.Print("\t", "QPEntry: ", a.Ledger.CostBasesHistory[i].QuotePriceEntry)
+		fmt.Print("\t", "QPExit: ", a.Ledger.CostBasesHistory[i].QuotePriceExit)
+		fmt.Print("\t", "USDPEntry: ", a.Ledger.CostBasesHistory[i].USDPriceEntry)
+		fmt.Print("\t", "USDPExit: ", a.Ledger.CostBasesHistory[i].USDPriceExit)
+		fmt.Print("\t", "C -> Q: ", a.Ledger.CostBasesHistory[i].ChangeAmount.BaseQuantity)
+		fmt.Print("\t", "C -> A: ", a.Ledger.CostBasesHistory[i].ChangeAmount.QuoteAmount)
+		fmt.Print("\t", "C -> V: ", a.Ledger.CostBasesHistory[i].ChangeAmount.USDValue)
+		fmt.Print("\t", "R -> BA: ", a.Ledger.CostBasesHistory[i].BalanceRemaining.BaseAmount)
+		fmt.Print("\t", "R -> BV: ", a.Ledger.CostBasesHistory[i].BalanceRemaining.BaseValue)
+		fmt.Print("\t", "R -> V: ", a.Ledger.CostBasesHistory[i].BalanceRemaining.USDValue)
+		fmt.Print("\n")
 	}
 
 	fmt.Println("COST BASIS ASSET QUEUE:", a.CostBasisAssetQueue)
@@ -264,6 +288,7 @@ func (a *Account) log() {
 }
 
 func (l *tradeLog) log() {
+	fmt.Print("\n")
 	fmt.Println("\t symbol: ->  deduct:", l.symbol.deduct)
 	fmt.Println("\t symbol: ->  append:", l.symbol.append)
 	fmt.Println("\t balance: ->  quote:", l.balance.quote)
