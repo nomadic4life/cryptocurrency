@@ -23,8 +23,8 @@ type tradeLog struct {
 		costBases   []CostBasisEntry
 	}
 	queue struct {
-		quote []AssetTrade
-		base  []AssetTrade
+		quote []AssetCostBasis
+		base  []AssetCostBasis
 	}
 }
 
@@ -35,7 +35,7 @@ func NewAccount(capital float64) *Account {
 	account.Ledger.Transactions = make([]TransactionEntry, 0, 20)
 	account.Ledger.CostBases = make([]CostBasisEntry, 0, 20)
 
-	account.Assets.CostBasisAssetQueue = make(map[string][]AssetTrade)
+	account.Assets.AssetCostBasesQueue = make(map[string][]AssetCostBasis)
 
 	account.Assets.Holdings = make(map[string]float64)
 	account.Assets.Holdings["USD"] = capital
@@ -71,16 +71,16 @@ func (a *Account) initLog(input TradeInput) *tradeLog {
 	log.statement.PNL = a.Statement.PNL
 	// log.statement.unrealizedPNL = a.Statement.unlrealizedPNL
 
-	if _, ok := a.Assets.CostBasisAssetQueue[transaction.base()]; ok {
-		log.queue.base = a.Assets.CostBasisAssetQueue[transaction.base()][:]
+	if _, ok := a.Assets.AssetCostBasesQueue[transaction.base()]; ok {
+		log.queue.base = a.Assets.AssetCostBasesQueue[transaction.base()][:]
 	} else {
-		log.queue.base = make([]AssetTrade, 0, 10)
+		log.queue.base = make([]AssetCostBasis, 0, 10)
 	}
 
-	if _, ok := a.Assets.CostBasisAssetQueue[transaction.quote()]; ok {
-		log.queue.quote = a.Assets.CostBasisAssetQueue[transaction.quote()][:]
+	if _, ok := a.Assets.AssetCostBasesQueue[transaction.quote()]; ok {
+		log.queue.quote = a.Assets.AssetCostBasesQueue[transaction.quote()][:]
 	} else {
-		log.queue.quote = make([]AssetTrade, 0, 10)
+		log.queue.quote = make([]AssetCostBasis, 0, 10)
 	}
 
 	return log
@@ -138,10 +138,10 @@ func (a *Account) inflow(log *tradeLog) {
 	}
 }
 
-func (a *Account) deduct(log *tradeLog) ([]AssetTrade, *[]AssetTrade) {
+func (a *Account) deduct(log *tradeLog) ([]AssetCostBasis, *[]AssetCostBasis) {
 
-	deductions := make([]AssetTrade, 0, 40)
-	records := append([]AssetTrade(nil), a.Assets.CostBasisAssetQueue[log.symbol.deduct]...)
+	deductions := make([]AssetCostBasis, 0, 40)
+	records := append([]AssetCostBasis(nil), a.Assets.AssetCostBasesQueue[log.symbol.deduct]...)
 	termination := 0.0
 
 	for log.balance.deduct > termination {
@@ -167,11 +167,11 @@ func (a *Account) deduct(log *tradeLog) ([]AssetTrade, *[]AssetTrade) {
 	return deductions, &records
 }
 
-func (a *Account) append(queue *[]AssetTrade, log *tradeLog) CostBasisEntry {
+func (a *Account) append(queue *[]AssetCostBasis, log *tradeLog) CostBasisEntry {
 
 	entry := newCostBasisEntry(nil, log)
 
-	asset := AssetTrade{
+	asset := AssetCostBasis{
 		TransactionID: entry.TransactionID,
 		QuotePrice:    entry.QuotePriceEntry,
 		USDPriceValue: entry.USDPriceEntry,
@@ -184,12 +184,12 @@ func (a *Account) append(queue *[]AssetTrade, log *tradeLog) CostBasisEntry {
 
 func (a *Account) updateAccount(log *tradeLog) {
 
-	// if _, ok := a.CostBasisAssetQueue[t.base()]; ok == false {
-	// 	a.CostBasisAssetQueue[t.base()] = make([]AssetTrade, 0, 10)
+	// if _, ok := a.AssetCostBasesQueue[t.base()]; ok == false {
+	// 	a.AssetCostBasesQueue[t.base()] = make([]AssetCostBasis, 0, 10)
 	// }
 
-	// if _, ok := a.CostBasisAssetQueue[t.quote()]; ok == false && t.quote() != "USD" {
-	// 	a.CostBasisAssetQueue[t.quote()] = make([]AssetTrade, 0, 10)
+	// if _, ok := a.AssetCostBasesQueue[t.quote()]; ok == false && t.quote() != "USD" {
+	// 	a.AssetCostBasesQueue[t.quote()] = make([]AssetCostBasis, 0, 10)
 	// }
 
 	a.Statement.PNL += log.statement.PNL
@@ -202,10 +202,10 @@ func (a *Account) updateAccount(log *tradeLog) {
 	a.Assets.Holdings[log.ledger.transaction.base()] = log.balance.base
 	a.Assets.Holdings[log.ledger.transaction.quote()] = log.balance.quote
 
-	a.Assets.CostBasisAssetQueue[log.ledger.transaction.base()] = log.queue.base
+	a.Assets.AssetCostBasesQueue[log.ledger.transaction.base()] = log.queue.base
 
 	if log.ledger.transaction.quote() != "USD" {
-		a.Assets.CostBasisAssetQueue[log.ledger.transaction.quote()] = log.queue.quote
+		a.Assets.AssetCostBasesQueue[log.ledger.transaction.quote()] = log.queue.quote
 	}
 }
 
@@ -261,7 +261,7 @@ func (a *Account) log() {
 		fmt.Print("\n")
 	}
 
-	fmt.Println("COST BASIS ASSET QUEUE:", a.Assets.CostBasisAssetQueue)
+	fmt.Println("COST BASIS ASSET QUEUE:", a.Assets.AssetCostBasesQueue)
 	fmt.Print("\n")
 }
 

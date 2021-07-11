@@ -7,7 +7,7 @@ type Account struct {
 	}
 	Assets struct {
 		Holdings            map[string]float64
-		CostBasisAssetQueue map[string][]AssetTrade
+		AssetCostBasesQueue map[string][]AssetCostBasis
 	}
 	Ledger struct {
 		Transactions []TransactionEntry
@@ -53,7 +53,7 @@ type CostBasisEntry struct {
 	}
 }
 
-type AssetTrade struct {
+type AssetCostBasis struct {
 	TransactionID
 	QuotePrice    float64
 	USDPriceValue float64
@@ -66,7 +66,7 @@ type TransactionID struct {
 	To   int64
 }
 
-type TradeInput struct { // InitTrade, TradeInput
+type TradeInput struct {
 	Date     int64
 	Pair     string
 	Type     string
@@ -77,24 +77,19 @@ type TradeInput struct { // InitTrade, TradeInput
 	Fee      float64
 }
 
-// added comments that reflect the changes of amount going in and out of asset trade
+// commits -> changed type names to reflect their purpose more accuretly
 
-// type trade struct {
-// 	symbol struct {
-// 		deduct string
-// 		append string
-// 	}
-// 	balance struct {
-// 		deduct float64
-// 		quote  float64
-// 		base   float64
-// 	}
-// 	amountDeducted float64
-// 	PNL            float64
-// 	unrealizedPNL  float64
-// 	assetRecords   []CostBasisEntry
-// 	queue          struct {
-// 		quote []AssetTrade
-// 		base  []AssetTrade
-// 	}
-// }
+// need TODO:
+// -> Read / Write JSON Data
+// -> log / display data in a nice table format
+// -> round calculations to USD amount or Crypto amount
+// -> clean up of names, prints, comments, code layout
+// -> refactor code, enqueue / dequeue, round calculations, inport / exports, other?
+// -> alternative cost basis implementation ex.> specific identification
+
+// -> API access:
+// -> -> BTC/USD price
+// -> -> Date
+
+// -> market holdings
+// -> -> note: how to implement this?
