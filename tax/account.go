@@ -95,23 +95,23 @@ func (a *Account) outFlow(log *tradeLog, t *Transaction) {
 
 		log.symbol.deduct = t.quote()
 		log.balance.quote -= t.OrderAmount
-		// a.deduct(o)
 
 		if t.quote() != "USD" {
 
 			// trade.amountDeducted = transaction[AMOUNT];
+			// log.balance.deduct = transaction.OrderAmount
 			log.amountDeducted = t.OrderAmount
 
 			// const [deductions, record] = this.deduct(trade);
-			// deductions, record := a.deduct(o)
+			deductions, record := a.deduct(log)
 
 			// trade.quoteQueue = [...record];
-			// copy(log.queue.quote, record)
+			copy(log.queue.quote, *record)
 
 			// trade.records.push(...deductions.map(item => new CostBasisRecord(account, item, transaction, trade)));
-			// for i := 0; i < len(deductions); i++ {
-			// 		log.records.append(newCostBasisRecord(deduction[i], t, o))
-			// }
+			for i := 0; i < len(deductions); i++ {
+				log.assetRecords = append(log.assetRecords, *newCostBasisEntry(&deductions[i], log, t))
+			}
 
 		}
 	}
@@ -168,7 +168,7 @@ func (a *Account) inflow(log *tradeLog, t *Transaction) {
 	}
 }
 
-func (a *Account) deduct(log *tradeLog) ([]AssetTrade, *[]AssetTrade) { // -> trade
+func (a *Account) deduct(log *tradeLog) ([]AssetTrade, *[]AssetTrade) {
 
 	deductions := make([]AssetTrade, 0, 40)
 	records := append([]AssetTrade(nil), a.CostBasisAssetQueue[log.symbol.deduct]...)
@@ -230,6 +230,7 @@ func (a *Account) updateAccount(log *tradeLog, transaction *Transaction) {
 	if transaction.quote() != "USD" {
 		a.CostBasisAssetQueue[transaction.quote()] = log.queue.quote
 	}
+
 }
 
 func (a *Account) getID() int64 {
@@ -248,8 +249,16 @@ func (a *Account) log() {
 	fmt.Print("\n")
 	fmt.Println("STATEMENT:", a.Statement)
 	fmt.Println("ASSETHOLDINGS:", a.AssetsHoldings)
-	fmt.Println("LEDGER -> TRANSACTION:", a.Ledger.TransactionHistory)
-	fmt.Println("LEDGER -> COST BASIS:", a.Ledger.CostBasesHistory)
+	fmt.Println("LEDGER -> TRANSACTION:")
+	for i := 0; i < len(a.Ledger.TransactionHistory); i++ {
+		fmt.Println("\t", a.Ledger.TransactionHistory[i])
+	}
+
+	fmt.Println("LEDGER -> COST BASIS:")
+	for i := 0; i < len(a.Ledger.CostBasesHistory); i++ {
+		fmt.Println("\t", a.Ledger.CostBasesHistory[i])
+	}
+
 	fmt.Println("COST BASIS ASSET QUEUE:", a.CostBasisAssetQueue)
 	fmt.Print("\n")
 }
@@ -266,3 +275,6 @@ func (l *tradeLog) log() {
 	fmt.Println("\t queue: -> quote", l.queue.quote)
 	fmt.Println("\t queue: -> base", l.queue.base)
 }
+
+//  npv
+//  net profit value

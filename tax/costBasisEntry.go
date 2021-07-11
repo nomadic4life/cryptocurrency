@@ -210,14 +210,20 @@ func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetTrade, log
 		0.0,
 		0.0,
 		0.0,
-		0.0}
+		transaction.OrderQuantity * entry.lastQuotePrice() * entry.lastUSDPrice()}
 
 	if asset != nil {
 		value[5] = asset.ChangeAmount
 		value[6] = asset.ChangeAmount * entry.lastQuotePrice()
 		value[7] = asset.ChangeAmount * entry.lastUSDPrice()
-		value[8] = entry.ChangeAmount.QuoteAmount * entry.lastUSDPrice()
+		value[8] = transaction.OrderQuantity * entry.lastQuotePrice() * entry.lastUSDPrice()
+		// value[8] = entry.ChangeAmount.QuoteAmount * entry.lastUSDPrice()
 	}
+
+	if asset != nil {
+		fmt.Println("change amount in change amount:", asset.ChangeAmount)
+	}
+	// fmt.Println(transaction)
 
 	var table map[string]map[int]int
 	table = make(map[string]map[int]int)
@@ -230,6 +236,7 @@ func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetTrade, log
 	entry.ChangeAmount.USDValue = value[table["USDValue"][index]]
 
 	fmt.Println("updated Change amount", entry)
+	fmt.Println(transaction, entry.lastQuotePrice(), entry.lastUSDPrice(), index)
 }
 
 func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLog, transaction *Transaction) {
@@ -258,7 +265,8 @@ func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetTrade,
 		entry.BalanceRemaining.BaseAmount[oldValue] = asset.BaseAmount
 		entry.BalanceRemaining.BaseAmount[newValue] = entry.BalanceRemaining.BaseAmount[oldValue] - entry.ChangeAmount.BaseQuantity
 		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = entry.USDPriceEntry * entry.BalanceRemaining.BaseValue
+		entry.BalanceRemaining.USDValue = entry.USDPriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
+		// entry.BalanceRemaining.USDValue = entry.USDPriceEntry * entry.BalanceRemaining.BaseValue
 
 	} else if index == 5 {
 
@@ -306,6 +314,7 @@ func updatePNL(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLo
 	} else {
 		// doesn't account for fee amount
 		entry.PNL.Amount = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.BaseQuantity) // - (transaction.fee || 0);
+
 		if index == 2 {
 			entry.PNL.Total = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.BaseQuantity) // - (transaction.fee || 0)
 		} else if index == 4 {
@@ -331,7 +340,7 @@ func (e *CostBasisEntry) lastUSDPrice() float64 {
 	if e.USDPriceExit != 0 {
 		return e.USDPriceExit
 	}
-	return e.QuotePriceEntry
+	return e.USDPriceEntry
 }
 
 // build
