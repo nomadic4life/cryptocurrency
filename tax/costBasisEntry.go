@@ -15,7 +15,8 @@ func newCostBasisEntry(asset *AssetTrade, log *tradeLog) *CostBasisEntry {
 		createID,
 		executedPrice,
 		updateChangeAmount,
-		updateBalanceRemaining}
+		updateBalanceRemaining,
+		updatePNL}
 	return build(asset, log, &log.ledger.transaction, cb)
 }
 
@@ -307,13 +308,11 @@ func updatePNL(index int, entry *CostBasisEntry, asset *AssetTrade, log *tradeLo
 		} else if index == 4 {
 			entry.PNL.Total = entry.ChangeAmount.USDValue - (entry.QuotePriceEntry * entry.ChangeAmount.BaseQuantity * entry.USDPriceEntry) // - (transaction.fee || 0)
 		} else if index == 6 {
-			entry.PNL.Total = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.BaseQuantity) // - (transaction.fee || 0)
+			entry.PNL.Amount = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.QuoteAmount)
+			entry.PNL.Total = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.QuoteAmount) // - (transaction.fee || 0)
 		}
-
+		log.statement.PNL = entry.PNL.Amount
 	}
-
-	// asset.PNL +=
-	// this['P & L']['USD Total'] = trade.profitAndLoss;
 }
 
 func (e *CostBasisEntry) lastQuotePrice() float64 {

@@ -192,6 +192,8 @@ func (a *Account) updateAccount(log *tradeLog) {
 	// 	a.CostBasisAssetQueue[t.quote()] = make([]AssetTrade, 0, 10)
 	// }
 
+	a.Statement.PNL += log.statement.PNL
+
 	a.Ledger.Transactions = append(a.Ledger.Transactions, *&log.ledger.transaction)
 	a.Ledger.CostBases = append(a.Ledger.CostBases, log.ledger.costBases...)
 	// a.Ledger.Transactions.enqueue(*transaction)
