@@ -10,8 +10,10 @@ type Account struct {
 		AssetCostBasesQueue map[string][]AssetCostBasis
 	}
 	Ledger struct {
-		Transactions []TransactionEntry
-		CostBases    []CostBasisEntry
+		// Transactions []TransactionEntry
+		// CostBases []CostBasisEntry
+		Transactions transactionList
+		CostBases    costBasisList
 	}
 }
 
@@ -92,7 +94,15 @@ type TradeInput struct {
 
 type table map[string]string
 
-type prop []string
+// type prop []string
+
+// type queue []interface{}
+
+type transactionList []TransactionEntry
+
+type costBasisList []CostBasisEntry
+
+type assetCostBasisList []AssetCostBasis
 
 func (t table) filter(properties []string) []string {
 

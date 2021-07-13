@@ -138,10 +138,10 @@ func (a *Account) inflow(log *tradeLog) {
 	}
 }
 
-func (a *Account) deduct(log *tradeLog) ([]AssetCostBasis, *[]AssetCostBasis) {
+func (a *Account) deduct(log *tradeLog) (assetCostBasisList, *assetCostBasisList) {
 
-	deductions := make([]AssetCostBasis, 0, 40)
-	records := append([]AssetCostBasis(nil), a.Assets.AssetCostBasesQueue[log.symbol.deduct]...)
+	deductions := make(assetCostBasisList, 0, 40)
+	records := append(assetCostBasisList(nil), a.Assets.AssetCostBasesQueue[log.symbol.deduct]...)
 	termination := 0.0
 
 	for log.balance.deduct > termination {
@@ -150,7 +150,8 @@ func (a *Account) deduct(log *tradeLog) ([]AssetCostBasis, *[]AssetCostBasis) {
 		if records[0].BaseAmount < log.balance.deduct {
 			log.balance.deduct -= records[0].BaseAmount
 			deductions[len(deductions)-1].ChangeAmount = records[0].BaseAmount
-			records = records[1:]
+			records.dequeue()
+			// records = records[1:]
 
 		} else {
 			records[0].BaseAmount -= log.balance.deduct
@@ -160,7 +161,8 @@ func (a *Account) deduct(log *tradeLog) ([]AssetCostBasis, *[]AssetCostBasis) {
 		}
 
 		if records[0].BaseAmount == 0 {
-			records = records[1:]
+			records.dequeue()
+			// records = records[1:]
 		}
 
 	}
@@ -194,10 +196,12 @@ func (a *Account) updateAccount(log *tradeLog) {
 
 	a.Statement.PNL += log.statement.PNL
 
-	a.Ledger.Transactions = append(a.Ledger.Transactions, *&log.ledger.transaction)
-	a.Ledger.CostBases = append(a.Ledger.CostBases, log.ledger.costBases...)
-	// a.Ledger.Transactions.enqueue(*transaction)
-	// a.Ledger.CostBases.enqueue(log.ledger.costBase)
+	// a.Ledger.Transactions = append(a.Ledger.Transactions, *&log.ledger.transaction)
+	// a.Ledger.CostBases = append(a.Ledger.CostBases, log.ledger.costBases...)
+	a.Ledger.Transactions.enqueue(&log.ledger.transaction)
+	a.Ledger.CostBases.enqueue(&log.ledger.costBases)
+
+	// a.Ledger.Transactions.dequeue()
 
 	a.Assets.Holdings[log.ledger.transaction.base()] = log.balance.base
 	a.Assets.Holdings[log.ledger.transaction.quote()] = log.balance.quote

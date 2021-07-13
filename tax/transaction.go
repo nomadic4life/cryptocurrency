@@ -106,10 +106,25 @@ func (e *TransactionEntry) filter(properties []string) []string {
 	return t.filter(properties)
 }
 
-// func (t *TransactionEntry) enqueue(transaction *TransactionEntry) {
-//   t = append(t, *transaction)
-// 	// a.Ledger.CostBases = append(a.Ledger.CostBases, log.ledger.costBases...)
-// }
+func (l *transactionList) enqueue(transaction *TransactionEntry) {
+	*l = append(*l, *transaction)
+}
+
+func (l *costBasisList) enqueue(costBases *[]CostBasisEntry) {
+	*l = append(*l, *costBases...)
+}
+
+func (l *transactionList) dequeue() *TransactionEntry {
+	t := *l
+	*l = t[1:]
+	return &t[0]
+}
+
+func (l *assetCostBasisList) dequeue() *AssetCostBasis {
+	t := *l
+	*l = t[1:]
+	return &t[0]
+}
 
 // TODO::
 // api to get USD price
