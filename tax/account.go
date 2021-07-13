@@ -201,8 +201,6 @@ func (a *Account) updateAccount(log *tradeLog) {
 	a.Ledger.Transactions.enqueue(&log.ledger.transaction)
 	a.Ledger.CostBases.enqueue(&log.ledger.costBases)
 
-	// a.Ledger.Transactions.dequeue()
-
 	a.Assets.Holdings[log.ledger.transaction.base()] = log.balance.base
 	a.Assets.Holdings[log.ledger.transaction.quote()] = log.balance.quote
 
