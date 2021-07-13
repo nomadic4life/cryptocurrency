@@ -34,14 +34,27 @@ type CostBasisEntry struct {
 	USDPriceEntry   float64
 	USDPriceExit    float64
 	ChangeAmount    struct {
+		// approtionment
+		// appropriation
+		// appropriate
+		// allotment
+		// allocation
 		BaseQuantity float64
-		QuoteAmount  float64
-		USDValue     float64
+		// Quantity
+		QuoteAmount float64
+		// relevent?
+		USDValue float64
+		// Value
 	}
 	BalanceRemaining struct {
+		// Balance
+		// Remaining <- subtracted from
 		BaseAmount [2]float64
-		BaseValue  float64
-		USDValue   float64
+		// Quantity
+		BaseValue float64
+		// relevent?
+		USDValue float64
+		// Value
 	}
 	Holdings struct {
 		TotalBaseBalance float64
@@ -77,9 +90,29 @@ type TradeInput struct {
 	Fee      float64
 }
 
+type table map[string]string
+
+type prop []string
+
+func (t table) filter(properties []string) []string {
+
+	results := make([]string, 0, 20)
+
+	for i := 0; i < len(properties); i++ {
+		key := properties[i]
+		if _, ok := t[key]; ok {
+			results = append(results, t[key])
+		}
+	}
+
+	return results
+}
+
 // commits -> changed type names to reflect their purpose more accuretly
 
 // need TODO:
+// -> need to test on gains and losses
+// -> need to fix bugs
 // -> Read / Write JSON Data
 // -> log / display data in a nice table format
 // -> round calculations to USD amount or Crypto amount

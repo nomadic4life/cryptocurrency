@@ -329,6 +329,28 @@ func (e *CostBasisEntry) lastUSDPrice() float64 {
 	return e.USDPriceEntry
 }
 
+func (e *CostBasisEntry) filter(properties []string) []string {
+	var t table = make(map[string]string)
+	t = map[string]string{
+		"Transaction ID":         fmt.Sprint(e.TransactionID),
+		"Quote Price Entry":      fmt.Sprint(e.QuotePriceEntry),
+		"Quote Price Exit":       fmt.Sprint(e.QuotePriceExit),
+		"USD Price Entry":        fmt.Sprint(e.USDPriceEntry),
+		"USD Price Exit":         fmt.Sprint(e.USDPriceExit),
+		"Allocation -> Quantity": fmt.Sprint(e.ChangeAmount.BaseQuantity),
+		"Allocation -> Amount":   fmt.Sprint(e.ChangeAmount.QuoteAmount),
+		"Allocation -> Value":    fmt.Sprint(e.ChangeAmount.USDValue),
+		"Balance -> Quantity":    fmt.Sprint(e.BalanceRemaining.BaseAmount),
+		"Balance -> Amount":      fmt.Sprint(e.BalanceRemaining.BaseValue),
+		"Balance -> Value":       fmt.Sprint(e.BalanceRemaining.USDValue),
+		"Holdings -> Balance":    fmt.Sprint(e.Holdings.TotalBaseBalance),
+		"Holdings -> unrealized": fmt.Sprint(e.Holdings.UnrealizedPNL),
+		"PNL -> Amount":          fmt.Sprint(e.PNL.Amount),
+		"PNL -> Total":           fmt.Sprint(e.PNL.Total)}
+
+	return t.filter(properties)
+}
+
 // build
 // create
 // raise

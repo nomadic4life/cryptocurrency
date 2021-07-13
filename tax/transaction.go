@@ -1,6 +1,7 @@
 package tax
 
 import (
+	"fmt"
 	"math"
 	"strings"
 )
@@ -89,6 +90,22 @@ func (t *TransactionEntry) base() string {
 	return strings.Split(t.OrderPair, "/")[0]
 }
 
+func (e *TransactionEntry) filter(properties []string) []string {
+	var t table = make(map[string]string)
+	t = map[string]string{
+		"Transaction ID":  fmt.Sprint(e.TransactionID),
+		"Order Date":      fmt.Sprint(e.Date),
+		"Order Pair":      fmt.Sprint(e.OrderPair),
+		"Order Type":      fmt.Sprint(e.OrderType),
+		"Order Price":     fmt.Sprint(e.OrderPrice),
+		"Order Quantity":  fmt.Sprint(e.OrderQuantity),
+		"Order Amount":    fmt.Sprint(e.OrderAmount),
+		"USD Price Value": fmt.Sprint(e.USDPriceValue),
+		"Fee Amount":      fmt.Sprint(e.FeeAmount)}
+
+	return t.filter(properties)
+}
+
 // func (t *TransactionEntry) enqueue(transaction *TransactionEntry) {
 //   t = append(t, *transaction)
 // 	// a.Ledger.CostBases = append(a.Ledger.CostBases, log.ledger.costBases...)
@@ -99,3 +116,4 @@ func (t *TransactionEntry) base() string {
 // api to get date
 // calculate fee
 // implement calcQuantity, calcAmount, calcFee as a method?
+// change file name to transactionEntry.go

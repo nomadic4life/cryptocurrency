@@ -278,3 +278,20 @@ func (l *tradeLog) log() {
 	fmt.Println("\t queue: -> quote", l.queue.quote)
 	fmt.Println("\t queue: -> base", l.queue.base)
 }
+
+// width of a field
+//  - 4 min for USD
+//  - $0.00         ->  6
+//  - $00,000.00    ->  10
+//  - $000,000      ->  8
+//  - 6 min for crypto
+//  - crypto
+//  - 0.0000            ->  size 6
+//  - 0.0000_0000       ->  size 10
+//  - 0,000.0000        ->  size 10
+//  - 0,000.0000_0000   ->  size 13
+//  - 000,000.0000      ->  size 12
+//  - 000,000,000.0000  ->  size 16
+//  - 0,000,000         ->  size 9
+
+// padding
