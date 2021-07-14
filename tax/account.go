@@ -2,8 +2,6 @@ package tax
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 )
 
 type tradeLog struct {
@@ -60,7 +58,8 @@ func (a *Account) CreateTransaction(input TradeInput) {
 	a.outFlow(log)
 	a.inflow(log)
 	a.updateAccount(log)
-	a.log()
+	a.display()
+	// a.log()
 }
 
 func (a *Account) initLog(input TradeInput) *tradeLog {
@@ -281,61 +280,6 @@ func (l *tradeLog) log() {
 	fmt.Println("\t assetRecords:", l.ledger.costBases)
 	fmt.Println("\t queue: -> quote", l.queue.quote)
 	fmt.Println("\t queue: -> base", l.queue.base)
-}
-
-func dollarFormat(value float64) string {
-	dollar := fmt.Sprintf("%.2f", value)
-	split := strings.Split(dollar, ".")
-	return "$" + commaSep(split)
-}
-
-func cryptoFormat(value float64) string {
-	a, err := strconv.ParseFloat(fmt.Sprintf("%.4f", value), 64)
-	if err != nil {
-		fmt.Println("error")
-	}
-
-	b, err := strconv.ParseFloat(fmt.Sprintf("%.8f", value), 64)
-	if err != nil {
-		fmt.Println("error")
-	}
-
-	num := strings.Split(fmt.Sprintf("%f", value), ".")[0]
-
-	var crypto string
-
-	if len(num) <= 5 && a != b {
-		crypto = fmt.Sprintf("%.8f", value)
-	} else if len(num) <= 7 || a == b {
-		crypto = fmt.Sprintf("%.4f", value)
-	} else {
-		crypto = fmt.Sprintf("%.1f", value)
-		fmt.Println(crypto)
-		split := strings.Split(crypto, ".")
-		split[1] = "0"
-		crypto = strings.Join(split, ".")
-	}
-
-	return commaSep(strings.Split(crypto, "."))
-}
-
-func commaSep(value []string) string {
-	offset := len(value[0]) / 3
-	size := len(value[0]) + offset
-	results := make([]byte, size, size)
-	counter := 0
-
-	// adding comma seperation
-	for i := len(value[0]) - 1; i >= 0; i-- {
-		if (len(value[0])-1-i)%3 == 0 && len(value[0])-1-i != 0 {
-			results[i+offset-counter] = ','
-			counter++
-		}
-
-		results[i-counter+offset] = value[0][i]
-	}
-	value[0] = string(results)
-	return strings.Join(value, ".")
 }
 
 // width of a field

@@ -97,10 +97,10 @@ func (e *TransactionEntry) filter(properties []string) []string {
 		"Order Date":      fmt.Sprint(e.Date),
 		"Order Pair":      fmt.Sprint(e.OrderPair),
 		"Order Type":      fmt.Sprint(e.OrderType),
-		"Order Price":     fmt.Sprint(e.OrderPrice),
-		"Order Quantity":  fmt.Sprint(e.OrderQuantity),
-		"Order Amount":    fmt.Sprint(e.OrderAmount),
-		"USD Price Value": fmt.Sprint(e.USDPriceValue),
+		"Order Price":     e.formatCurrency(e.OrderPrice),
+		"Order Quantity":  cryptoFormat(e.OrderQuantity),
+		"Order Amount":    e.formatCurrency(e.OrderAmount),
+		"USD Price Value": dollarFormat(e.USDPriceValue),
 		"Fee Amount":      fmt.Sprint(e.FeeAmount)}
 
 	return t.filter(properties)
