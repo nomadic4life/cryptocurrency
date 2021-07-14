@@ -18,7 +18,7 @@ func (t *TransactionEntry) formatCurrency(value float64) string {
 func dollarFormat(value float64) string {
 	dollar := fmt.Sprintf("%.2f", value)
 	split := strings.Split(dollar, ".")
-	return "$" + commaSep(split)
+	return "$ " + commaSep(split)
 }
 
 func cryptoFormat(value float64) string {
@@ -67,7 +67,8 @@ func commaSep(value []string) string {
 		results[i-counter+offset] = value[0][i]
 	}
 	value[0] = string(results)
-	return strings.Join(value, ".")
+
+	return strings.TrimLeft(strings.Join(value, "."), string(byte(0)))
 }
 
 // func typeTransaction(t *TransactionEntry) ([]string, map[string]string) {
