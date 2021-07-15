@@ -1,6 +1,9 @@
 package tax
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 func newCostBasisEntry(asset *AssetCostBasis, log *tradeLog) *CostBasisEntry {
 	// middleware implementation
@@ -226,9 +229,9 @@ func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetCostBasis,
 	table["Quote Amount"] = map[int]int{7: 2, 1: 3, 5: 3, 2: 6, 4: 6, 6: 6}
 	table["USDValue"] = map[int]int{7: 1, 1: 4, 2: 7, 4: 7, 5: 8, 6: 8}
 
-	entry.ChangeAmount.BaseQuantity = value[table["Base Quantity"][index]]
+	entry.ChangeAmount.BaseQuantity = math.Floor(value[table["Base Quantity"][index]]*math.Pow(10, 8)) / math.Pow(10, 8)
 	entry.ChangeAmount.QuoteAmount = value[table["Quote Amount"][index]]
-	entry.ChangeAmount.USDValue = value[table["USDValue"][index]]
+	entry.ChangeAmount.USDValue = math.Floor(value[table["USDValue"][index]]*100) / 100
 }
 
 func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetCostBasis, log *tradeLog, transaction *TransactionEntry) {
@@ -239,50 +242,50 @@ func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetCostBa
 
 		//      -- BALANCE REMAINING --
 		entry.BalanceRemaining.BaseAmount[oldValue] = 0
-		entry.BalanceRemaining.BaseAmount[newValue] = entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor(entry.ChangeAmount.BaseQuantity*math.Pow(10, 8)) / math.Pow(10, 8)
 		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = entry.BalanceRemaining.BaseValue
+		entry.BalanceRemaining.USDValue = math.Floor(entry.BalanceRemaining.BaseValue*100) / 100
 
 	} else if index == 2 {
 
 		//      -- BALANCE REMAINING --
 		entry.BalanceRemaining.BaseAmount[oldValue] = asset.BaseAmount
-		entry.BalanceRemaining.BaseAmount[newValue] = entry.BalanceRemaining.BaseAmount[oldValue] - entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor((entry.BalanceRemaining.BaseAmount[oldValue]-entry.ChangeAmount.BaseQuantity)*math.Pow(10, 8)) / math.Pow(10, 8)
 		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = entry.BalanceRemaining.BaseValue
+		entry.BalanceRemaining.USDValue = math.Floor(entry.BalanceRemaining.BaseValue*100) / 100
 
 	} else if index == 4 {
 
 		//      -- BALANCE REMAINING --
 		entry.BalanceRemaining.BaseAmount[oldValue] = asset.BaseAmount
-		entry.BalanceRemaining.BaseAmount[newValue] = entry.BalanceRemaining.BaseAmount[oldValue] - entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor((entry.BalanceRemaining.BaseAmount[oldValue]-entry.ChangeAmount.BaseQuantity)*math.Pow(10, 8)) / math.Pow(10, 8)
 		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = entry.USDPriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
+		entry.BalanceRemaining.USDValue = math.Floor(entry.USDPriceEntry*entry.BalanceRemaining.BaseAmount[newValue]*100) / 100
 		// entry.BalanceRemaining.USDValue = entry.USDPriceEntry * entry.BalanceRemaining.BaseValue
 
 	} else if index == 5 {
 
 		//      -- BALANCE REMAINING --
 		entry.BalanceRemaining.BaseAmount[oldValue] = 0
-		entry.BalanceRemaining.BaseAmount[newValue] = entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor(entry.ChangeAmount.BaseQuantity*math.Pow(10, 8)) / math.Pow(10, 8)
 		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = entry.USDPriceEntry * entry.BalanceRemaining.BaseValue
+		entry.BalanceRemaining.USDValue = math.Floor(entry.USDPriceEntry*entry.BalanceRemaining.BaseValue*100) / 100
 
 	} else if index == 6 {
 
 		//      -- BALANCE REMAINING --
 		entry.BalanceRemaining.BaseAmount[oldValue] = asset.BaseAmount
-		entry.BalanceRemaining.BaseAmount[newValue] = entry.BalanceRemaining.BaseAmount[oldValue] - entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor((entry.BalanceRemaining.BaseAmount[oldValue]-entry.ChangeAmount.BaseQuantity)*math.Pow(10, 8)) / math.Pow(10, 8)
 		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = entry.USDPriceEntry * entry.BalanceRemaining.BaseValue
+		entry.BalanceRemaining.USDValue = math.Floor(entry.USDPriceEntry*entry.BalanceRemaining.BaseValue*100) / 100
 
 	} else if index == 7 {
 
 		//      -- BALANCE REMAINING --
 		entry.BalanceRemaining.BaseAmount[oldValue] = 0
-		entry.BalanceRemaining.BaseAmount[newValue] = entry.ChangeAmount.BaseQuantity
+		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor(entry.ChangeAmount.BaseQuantity*math.Pow(10, 8)) / math.Pow(10, 8)
 		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = entry.BalanceRemaining.BaseValue
+		entry.BalanceRemaining.USDValue = math.Floor(entry.BalanceRemaining.BaseValue*100) / 100
 
 	}
 }

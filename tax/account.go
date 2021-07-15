@@ -60,8 +60,8 @@ func (a *Account) CreateTransaction(input TradeInput) {
 	a.outFlow(log)
 	a.inflow(log)
 	a.updateAccount(log)
+
 	a.display()
-	// a.log()
 }
 
 func (a *Account) initLog(input TradeInput) *tradeLog {
@@ -154,7 +154,6 @@ func (a *Account) deduct(log *tradeLog) (assetCostBasisList, *assetCostBasisList
 			log.balance.deduct -= records[0].BaseAmount
 			deductions[len(deductions)-1].ChangeAmount = records[0].BaseAmount
 			records.dequeue()
-			// records = records[1:]
 
 		} else {
 			records[0].BaseAmount -= log.balance.deduct
@@ -165,7 +164,6 @@ func (a *Account) deduct(log *tradeLog) (assetCostBasisList, *assetCostBasisList
 
 		if records[0].BaseAmount == 0 {
 			records.dequeue()
-			// records = records[1:]
 		}
 
 	}

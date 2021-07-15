@@ -80,40 +80,6 @@ func commaSep(value []string) string {
 	return strings.TrimLeft(strings.Join(value, "."), string(byte(0)))
 }
 
-// func typeTransaction(t *TransactionEntry) ([]string, map[string]string) {
-// 	properties := []string{
-// 		"Transaction ID",
-// 		// "Order Date",
-// 		"Order Pair",
-// 		"Order Type",
-// 		"Order Price",
-// 		"Order Quantity",
-// 		"Order Amount",
-// 		"USD Price Value"}
-// 	// "Fee Amount",}
-
-// 	headerFields := map[string]string{
-// 		"Transaction ID":  "ID",
-// 		"Order Date":      "Date",
-// 		"Order Pair":      "Pair",
-// 		"Order Type":      "Type",
-// 		"Order Price":     "Price",
-// 		"Order Quantity":  "Quantity",
-// 		"Order Amount":    "Amount",
-// 		"USD Price Value": "Price Value",
-// 		"Fee Amount":      "Fee"}
-
-// 	// filter header
-// 	// -> logic
-
-// 	// filter body
-// 	data := t.filter(properties)
-
-// 	}
-
-// 	return fields, tinyFields
-// }
-
 func typeCostBasis() ([]string, map[string]string) {
 	fields := []string{
 		"Transaction ID",
@@ -344,39 +310,39 @@ func pad(v string, num int) string {
 	return strings.Repeat(v, num)
 }
 
-var propertyWidths map[string]map[string]int = map[string]map[string]int{
-	// 268
-	"Transaction ID": {
-		"From": 6,
-		"To":   6},
-	"Quote Price": {
-		"Entry": 14,
-		"Exit":  14},
-	"USD Price": {
-		"Entry": 15,
-		"Exit":  15},
-	"Allocation": {
-		"Quantity": 18,
-		"Amount":   18,
-		"Value":    14},
-	"Balance": {
-		"Quantity": 18,
-		"Amount":   18,
-		"Value":    14},
-	"Holdings": {
-		"Balance":    20,
-		"Unrealized": 20},
-	"PNL": {
-		"Amount": 14,
-		"Total":  20},
-	// 137
-	"Transactions": {
-		"ID":       8,
-		"Date":     20,
-		"Pair":     11,
-		"Type":     8,
-		"Price":    18,
-		"Quantity": 18,
-		"Amount":   18,
-		"Value":    18,
-		"Fee":      18}}
+// var propertyWidths map[string]map[string]int = map[string]map[string]int{
+// 	// 268
+// 	"Transaction ID": {
+// 		"From": 6,
+// 		"To":   6},
+// 	"Quote Price": {
+// 		"Entry": 14,
+// 		"Exit":  14},
+// 	"USD Price": {
+// 		"Entry": 15,
+// 		"Exit":  15},
+// 	"Allocation": {
+// 		"Quantity": 18,
+// 		"Amount":   18,
+// 		"Value":    14},
+// 	"Balance": {
+// 		"Quantity": 18,
+// 		"Amount":   18,
+// 		"Value":    14},
+// 	"Holdings": {
+// 		"Balance":    20,
+// 		"Unrealized": 20},
+// 	"PNL": {
+// 		"Amount": 14,
+// 		"Total":  20},
+// 	// 137
+// 	"Transactions": {
+// 		"ID":       8,
+// 		"Date":     20,
+// 		"Pair":     11,
+// 		"Type":     8,
+// 		"Price":    18,
+// 		"Quantity": 18,
+// 		"Amount":   18,
+// 		"Value":    18,
+// 		"Fee":      18}}
