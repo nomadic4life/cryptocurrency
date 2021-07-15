@@ -15,6 +15,15 @@ func (t *TransactionEntry) formatCurrency(value float64) string {
 	return cryptoFormat(value)
 }
 
+func formatCurrency(value float64, quote string) string {
+
+	if quote == "USD" {
+		return dollarFormat(value)
+	}
+
+	return cryptoFormat(value)
+}
+
 func dollarFormat(value float64) string {
 	dollar := fmt.Sprintf("%.2f", value)
 	split := strings.Split(dollar, ".")
@@ -163,7 +172,10 @@ func createRow(fields []string, width, offset int) []string {
 }
 
 func (a *Account) display() {
-	properties := []string{
+	properties := make([][]string, 2)
+	sheet := make([][][]string, 2)
+
+	properties[0] = []string{
 		"Transaction ID",
 		// "Order Date",
 		"Order Pair",
@@ -173,22 +185,62 @@ func (a *Account) display() {
 		"Order Amount",
 		"USD Price Value"}
 
+	properties[1] = []string{
+		"Transaction ID",
+		"Quote Price Entry",
+		"Quote Price Exit",
+		"USD Price Entry",
+		"USD Price Exit",
+		// "Allocation -> Quantity", // bugged
+		"Allocation -> Amount",
+		"Allocation -> Value",
+		"Balance -> Quantity",
+		"Balance -> Amount",
+		"Balance -> Value",
+		// "Holdings -> Balance",
+		// "Holdings -> unrealized", // bugged
+		"PNL -> Amount",
+		"PNL -> Total"}
+
 	transactions := make([][]string, 0, len(a.Ledger.Transactions))
-	// costBases := a.Ledger.CostBases
 
 	// filter transactions
 	for i := 0; i < len(a.Ledger.Transactions); i++ {
-		transactions = append(transactions, a.Ledger.Transactions[i].filter(properties))
+		transactions = append(transactions, a.Ledger.Transactions[i].filter(properties[0]))
 	}
 
-	sheet := createSheet(properties, transactions)
+	sheet[0] = createSheet(properties[0], transactions)
 
-	for i := 0; i < len(sheet); i++ {
-		fmt.Println(sheet[i])
+	// display transactions
+	fmt.Println()
+	for i := 0; i < len(sheet[0]); i++ {
+		fmt.Println(sheet[0][i])
+		if i%3 == 0 && i != 0 {
+			fmt.Println()
+		}
 	}
 
 	fmt.Println()
 
+	costBases := make([][]string, 0, len(a.Ledger.CostBases))
+
+	// filter costBases
+	for i := 0; i < len(a.Ledger.CostBases); i++ {
+		costBases = append(costBases, a.Ledger.CostBases[i].filter(properties[1]))
+	}
+
+	sheet[1] = createSheet(properties[1], costBases)
+
+	// display costBases
+	fmt.Println()
+	for i := 0; i < len(sheet[1]); i++ {
+		fmt.Println(sheet[1][i])
+		if i%3 == 0 && i != 0 {
+			fmt.Println()
+		}
+	}
+
+	fmt.Println()
 }
 
 func createSheet(fields []string, data [][]string) [][]string {
@@ -214,3 +266,40 @@ func createSheet(fields []string, data [][]string) [][]string {
 func pad(v string, num int) string {
 	return strings.Repeat(v, num)
 }
+
+var propertyWidths map[string]map[string]int = map[string]map[string]int{
+	// 268
+	"Transaction ID": {
+		"From": 6,
+		"To":   6},
+	"Quote Price": {
+		"Entry": 14,
+		"Exit":  14},
+	"USD Price": {
+		"Entry": 15,
+		"Exit":  15},
+	"Allocation": {
+		"Quantity": 18,
+		"Amount":   18,
+		"Value":    14},
+	"Balance": {
+		"Quantity": 18,
+		"Amount":   18,
+		"Value":    14},
+	"Holdings": {
+		"Balance":    20,
+		"Unrealized": 20},
+	"PNL": {
+		"Amount": 14,
+		"Total":  20},
+	// 137
+	"Transactions": {
+		"ID":       8,
+		"Date":     20,
+		"Pair":     11,
+		"Type":     8,
+		"Price":    18,
+		"Quantity": 18,
+		"Amount":   18,
+		"Value":    18,
+		"Fee":      18}}

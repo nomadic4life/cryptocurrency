@@ -18,7 +18,7 @@ type Account struct {
 }
 
 type TransactionEntry struct {
-	TransactionID int64
+	TransactionID string
 	Date          int64
 	OrderPair     string
 	OrderType     string
@@ -30,6 +30,10 @@ type TransactionEntry struct {
 }
 
 type CostBasisEntry struct {
+	meta struct {
+		orderPair string
+		date      int
+	}
 	TransactionID
 	QuotePriceEntry float64
 	QuotePriceExit  float64
@@ -77,8 +81,8 @@ type AssetCostBasis struct {
 }
 
 type TransactionID struct {
-	From int64
-	To   int64
+	Credit string
+	Debit  string
 }
 
 type TradeInput struct {

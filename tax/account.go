@@ -2,6 +2,8 @@ package tax
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 type tradeLog struct {
@@ -212,8 +214,8 @@ func (a *Account) updateAccount(log *tradeLog) {
 	}
 }
 
-func (a *Account) getID() int64 {
-	return int64(len(a.Ledger.Transactions))
+func (a *Account) getID() string {
+	return strconv.Itoa(len(a.Ledger.Transactions))
 }
 
 func (a *Account) getAssetHoldings(symbol string) float64 {
@@ -249,8 +251,8 @@ func (a *Account) log() {
 	fmt.Println("LEDGER -> COST BASIS:")
 	for i := 0; i < len(a.Ledger.CostBases); i++ {
 
-		fmt.Print("\t", "ID ->: ", a.Ledger.CostBases[i].TransactionID.From)
-		fmt.Print("", " - ", a.Ledger.CostBases[i].TransactionID.To)
+		fmt.Print("\t", "ID ->: ", a.Ledger.CostBases[i].TransactionID.Credit)
+		fmt.Print("", " - ", a.Ledger.CostBases[i].TransactionID.Debit)
 		fmt.Print("\t", "QPEntry: ", a.Ledger.CostBases[i].QuotePriceEntry)
 		fmt.Print("\t", "QPExit: ", a.Ledger.CostBases[i].QuotePriceExit)
 		fmt.Print("\t", "USDPEntry: ", a.Ledger.CostBases[i].USDPriceEntry)
@@ -280,6 +282,10 @@ func (l *tradeLog) log() {
 	fmt.Println("\t assetRecords:", l.ledger.costBases)
 	fmt.Println("\t queue: -> quote", l.queue.quote)
 	fmt.Println("\t queue: -> base", l.queue.base)
+}
+
+func (e *CostBasisEntry) quote() string {
+	return strings.Split(e.meta.orderPair, "/")[1]
 }
 
 // width of a field
