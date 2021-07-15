@@ -90,10 +90,6 @@ type TradeInput struct {
 
 type table map[string]string
 
-// type prop []string
-
-// type queue []interface{}
-
 type transactionList []TransactionEntry
 
 type costBasisList []CostBasisEntry
@@ -117,16 +113,34 @@ func (t table) filter(properties []string) []string {
 // commits -> changed type names to reflect their purpose more accuretly
 
 // need TODO:
-// -> need to test on gains and losses
+// -> need to test on gains and losses <- this
+// -> complete formatting
+// -> implement tests
 // -> need to fix bugs
 // -> Read / Write JSON Data
 // -> clean up of names, prints, comments, code layout
 // -> refactor code, enqueue / dequeue, round calculations, inport / exports, other?
 // -> alternative cost basis implementation ex.> specific identification
+// -> implment unrealized PNL tracking [after each trade]/[real time ticker]
 
 // -> API access:
 // -> -> BTC/USD price
 // -> -> Date
 
-// -> market holdings
-// -> -> note: how to implement this?
+// add
+//	-> base balance value to holdings -> Cost Basis Entry
+//	-> maybe for c/c display the USD value of Amount at USD Price?
+
+// bugs
+//	-> buy -> c/c -> deduct :: format of quote price entry and quote price exit should display as USD
+//	-> buy -> c/c -> deduct :: format of allcation amount should be in USD
+//	-> buy -> c/c -> deduct :: old value is wrong, and new value is wrong but is in correct currecny
+//		-> old value looks like it should be in new value
+//		-> old value come from credit ID of new value
+//	-> buy -> c/c -> deduct :: Balance Amount is incorrect display 0; probably because of new value is wrong
+// 	-> buy -> c/c -> deduct :: Balance Value is incorrect, display 0;
+//	-> buy -> c/c -> deduct :: Holding Balance is incorrect
+//	-> sell -> c/u -> deduct :: Balance Quantity incorrect data
+// 	-> sell -> c/c -> deduct :: Balance Quantity incorrect data
+// 	-> sell -> c/c -> append :: is Allcation Amount relevent? display in crypto value
+//	-> on appened should display correct data for PNL Total
