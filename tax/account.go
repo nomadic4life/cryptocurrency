@@ -226,50 +226,6 @@ func (a *Account) getAssetHoldings(symbol string) float64 {
 	return 0.0
 }
 
-func (a *Account) log() {
-
-	fmt.Print("\n")
-	fmt.Println("STATEMENT:", a.Statement)
-	fmt.Println("ASSETHOLDINGS:", a.Assets.Holdings)
-	fmt.Println("LEDGER -> TRANSACTION:")
-
-	for i := 0; i < len(a.Ledger.Transactions); i++ {
-
-		fmt.Print("\t", "ID: ", a.Ledger.Transactions[i].TransactionID)
-		fmt.Print("\t", "DATE: ", a.Ledger.Transactions[i].Date)
-		fmt.Print("\t\t", "PAIR: ", a.Ledger.Transactions[i].OrderPair)
-		fmt.Print("\t\t", "TYPE: ", a.Ledger.Transactions[i].OrderType)
-		fmt.Print("\t", "PRICE: ", a.Ledger.Transactions[i].OrderPrice)
-		fmt.Print("\t", "QUANTITY: ", a.Ledger.Transactions[i].OrderQuantity)
-		fmt.Print("\t", "AMOUNT: ", a.Ledger.Transactions[i].OrderAmount)
-		fmt.Print("\t", "VALUE: ", a.Ledger.Transactions[i].USDPriceValue)
-		fmt.Print("\n")
-
-	}
-
-	fmt.Print("\n")
-	fmt.Println("LEDGER -> COST BASIS:")
-	for i := 0; i < len(a.Ledger.CostBases); i++ {
-
-		fmt.Print("\t", "ID ->: ", a.Ledger.CostBases[i].TransactionID.Credit)
-		fmt.Print("", " - ", a.Ledger.CostBases[i].TransactionID.Debit)
-		fmt.Print("\t", "QPEntry: ", a.Ledger.CostBases[i].QuotePriceEntry)
-		fmt.Print("\t", "QPExit: ", a.Ledger.CostBases[i].QuotePriceExit)
-		fmt.Print("\t", "USDPEntry: ", a.Ledger.CostBases[i].USDPriceEntry)
-		fmt.Print("\t", "USDPExit: ", a.Ledger.CostBases[i].USDPriceExit)
-		fmt.Print("\t", "C -> Q: ", a.Ledger.CostBases[i].ChangeAmount.BaseQuantity)
-		fmt.Print("\t", "C -> A: ", a.Ledger.CostBases[i].ChangeAmount.QuoteAmount)
-		fmt.Print("\t", "C -> V: ", a.Ledger.CostBases[i].ChangeAmount.USDValue)
-		fmt.Print("\t", "R -> BA: ", a.Ledger.CostBases[i].BalanceRemaining.BaseAmount)
-		fmt.Print("\t", "R -> BV: ", a.Ledger.CostBases[i].BalanceRemaining.BaseValue)
-		fmt.Print("\t", "R -> V: ", a.Ledger.CostBases[i].BalanceRemaining.USDValue)
-		fmt.Print("\n")
-	}
-
-	fmt.Println("COST BASIS ASSET QUEUE:", a.Assets.AssetCostBasesQueue)
-	fmt.Print("\n")
-}
-
 func (l *tradeLog) log() {
 	fmt.Print("\n")
 	fmt.Println("\t symbol: ->  deduct:", l.symbol.deduct)
