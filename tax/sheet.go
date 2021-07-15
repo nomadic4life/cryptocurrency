@@ -262,6 +262,11 @@ func (a *Account) display() {
 		"PNL -> Amount":            "AMOUNT",
 		"PNL -> Total":             "TOTAL"}
 
+	fmt.Print("\n")
+	fmt.Println("STATEMENT:", a.Statement)
+	fmt.Println("ASSETHOLDINGS:", a.Assets.Holdings)
+	fmt.Println("LEDGER -> TRANSACTION:")
+
 	transactions := make([][]string, 0, len(a.Ledger.Transactions))
 
 	// filter transactions
@@ -283,6 +288,7 @@ func (a *Account) display() {
 	}
 
 	fmt.Println()
+	fmt.Println("LEDGER -> COST BASIS:")
 
 	costBases := make([][]string, 0, len(a.Ledger.CostBases))
 

@@ -352,6 +352,12 @@ func (e *CostBasisEntry) filter(properties []string) []string {
 		"PNL -> Amount":            dollarFormat(e.PNL.Amount),                              // dollarFormat
 		"PNL -> Total":             dollarFormat(e.PNL.Total)}                               // dollarFormat
 
+	if e.QuotePriceExit == 0.0 {
+		t["Quote Price -> Exit"] = "-"
+		t["USD Price -> Exit"] = "-"
+		t["PNL -> Amount"] = "-"
+	}
+
 	return t.filter(properties)
 }
 
