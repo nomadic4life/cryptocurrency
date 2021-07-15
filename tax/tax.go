@@ -40,36 +40,27 @@ type CostBasisEntry struct {
 	QuotePriceExit  float64
 	USDPriceEntry   float64
 	USDPriceExit    float64
-	ChangeAmount    struct {
-		// approtionment
-		// appropriation
-		// appropriate
-		// allotment
-		// allocation
-		BaseQuantity float64
-		// Quantity
-		QuoteAmount float64
-		// relevent?
-		USDValue float64
-		// Value
+	Allocation      struct {
+		Quantity float64
+		Amount   float64 // not relevent
+		Value    float64
 	}
 	BalanceRemaining struct {
 		// Balance
 		// Remaining <- subtracted from
-		BaseAmount [2]float64
-		// Quantity
-		BaseValue float64
-		// relevent?
-		USDValue float64
-		// Value
+		Quantity [2]float64
+		Amount   float64 // not relevent
+		Value    float64
 	}
 	Holdings struct {
-		TotalBaseBalance float64
-		UnrealizedPNL    float64
+		// NOT RELEVENT
+		Base  float64
+		Quote float64
 	}
 	PNL struct {
 		Amount float64
-		Total  float64
+		Total  float64 // not relevent
+		// Unrealized float64
 	}
 }
 
@@ -77,8 +68,8 @@ type AssetCostBasis struct {
 	TransactionID
 	QuotePrice    float64
 	USDPriceValue float64
-	BaseAmount    float64 // debit
-	ChangeAmount  float64 // credit
+	Quantity      float64 // debit
+	Credit        float64 // credit
 }
 
 type TransactionID struct {
@@ -129,8 +120,6 @@ func (t table) filter(properties []string) []string {
 // -> need to test on gains and losses
 // -> need to fix bugs
 // -> Read / Write JSON Data
-// -> log / display data in a nice table format
-// -> round calculations to USD amount or Crypto amount
 // -> clean up of names, prints, comments, code layout
 // -> refactor code, enqueue / dequeue, round calculations, inport / exports, other?
 // -> alternative cost basis implementation ex.> specific identification

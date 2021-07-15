@@ -12,7 +12,7 @@ type tradeLog struct {
 		append string
 	}
 	balance struct {
-		deduct float64
+		deduct float64 // <- credit? -> deduct?
 		quote  float64
 		base   float64
 	}
@@ -150,19 +150,19 @@ func (a *Account) deduct(log *tradeLog) (assetCostBasisList, *assetCostBasisList
 	for log.balance.deduct > termination {
 		deductions = append(deductions, records[0])
 
-		if records[0].BaseAmount < log.balance.deduct {
-			log.balance.deduct -= records[0].BaseAmount
-			deductions[len(deductions)-1].ChangeAmount = records[0].BaseAmount
+		if records[0].Quantity < log.balance.deduct {
+			log.balance.deduct -= records[0].Quantity
+			deductions[len(deductions)-1].Quantity = records[0].Quantity
 			records.dequeue()
 
 		} else {
-			records[0].BaseAmount -= log.balance.deduct
-			deductions[len(deductions)-1].ChangeAmount = log.balance.deduct
+			records[0].Quantity -= log.balance.deduct
+			deductions[len(deductions)-1].Quantity = log.balance.deduct
 			log.balance.deduct = 0.0
 
 		}
 
-		if records[0].BaseAmount == 0 {
+		if records[0].Quantity == 0 {
 			records.dequeue()
 		}
 
@@ -178,7 +178,7 @@ func (a *Account) append(queue *[]AssetCostBasis, log *tradeLog) CostBasisEntry 
 		TransactionID: entry.TransactionID,
 		QuotePrice:    entry.QuotePriceEntry,
 		USDPriceValue: entry.USDPriceEntry,
-		BaseAmount:    entry.BalanceRemaining.BaseAmount[1]}
+		Quantity:      entry.BalanceRemaining.Quantity[1]}
 
 	*queue = append(*queue, asset)
 
@@ -195,7 +195,7 @@ func (a *Account) updateAccount(log *tradeLog) {
 	// 	a.AssetCostBasesQueue[t.quote()] = make([]AssetCostBasis, 0, 10)
 	// }
 
-	a.Statement.PNL += log.statement.PNL
+	a.Statement.PNL = log.statement.PNL
 
 	// a.Ledger.Transactions = append(a.Ledger.Transactions, *&log.ledger.transaction)
 	// a.Ledger.CostBases = append(a.Ledger.CostBases, log.ledger.costBases...)

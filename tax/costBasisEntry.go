@@ -17,8 +17,9 @@ func newCostBasisEntry(asset *AssetCostBasis, log *tradeLog) *CostBasisEntry {
 	cb := []builder{
 		createID,
 		executedPrice,
-		updateChangeAmount,
+		updateAllocation,
 		updateBalanceRemaining,
+		updateHoldings,
 		updatePNL}
 	return build(asset, log, &log.ledger.transaction, cb)
 }
@@ -202,7 +203,7 @@ func executedPrice(index int, entry *CostBasisEntry, asset *AssetCostBasis, log 
 	entry.USDPriceExit = price[table["USD Price Exit"][index]]
 }
 
-func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetCostBasis, log *tradeLog, transaction *TransactionEntry) {
+func updateAllocation(index int, entry *CostBasisEntry, asset *AssetCostBasis, log *tradeLog, transaction *TransactionEntry) {
 
 	value := [9]float64{
 		transaction.OrderAmount,
@@ -216,11 +217,11 @@ func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetCostBasis,
 		transaction.OrderQuantity * entry.lastQuotePrice() * entry.lastUSDPrice()}
 
 	if asset != nil {
-		value[5] = asset.ChangeAmount
-		value[6] = asset.ChangeAmount * entry.lastQuotePrice()
-		value[7] = asset.ChangeAmount * entry.lastUSDPrice()
+		value[5] = asset.Quantity
+		value[6] = asset.Quantity * entry.lastQuotePrice()
+		value[7] = asset.Quantity * entry.lastUSDPrice()
 		value[8] = transaction.OrderQuantity * entry.lastQuotePrice() * entry.lastUSDPrice()
-		// value[8] = entry.ChangeAmount.QuoteAmount * entry.lastUSDPrice()
+		// value[8] = entry.Allocate.Amount * entry.lastUSDPrice()
 	}
 
 	var table map[string]map[int]int
@@ -229,9 +230,9 @@ func updateChangeAmount(index int, entry *CostBasisEntry, asset *AssetCostBasis,
 	table["Quote Amount"] = map[int]int{7: 2, 1: 3, 5: 3, 2: 6, 4: 6, 6: 6}
 	table["USDValue"] = map[int]int{7: 1, 1: 4, 2: 7, 4: 7, 5: 8, 6: 8}
 
-	entry.ChangeAmount.BaseQuantity = math.Floor(value[table["Base Quantity"][index]]*math.Pow(10, 8)) / math.Pow(10, 8)
-	entry.ChangeAmount.QuoteAmount = value[table["Quote Amount"][index]]
-	entry.ChangeAmount.USDValue = math.Floor(value[table["USDValue"][index]]*100) / 100
+	entry.Allocation.Quantity = math.Floor(value[table["Base Quantity"][index]]*math.Pow(10, 8)) / math.Pow(10, 8)
+	entry.Allocation.Amount = value[table["Quote Amount"][index]]
+	entry.Allocation.Value = math.Floor(value[table["USDValue"][index]]*100) / 100
 }
 
 func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetCostBasis, log *tradeLog, transaction *TransactionEntry) {
@@ -241,60 +242,80 @@ func updateBalanceRemaining(index int, entry *CostBasisEntry, asset *AssetCostBa
 	if index == 1 {
 
 		//      -- BALANCE REMAINING --
-		entry.BalanceRemaining.BaseAmount[oldValue] = 0
-		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor(entry.ChangeAmount.BaseQuantity*math.Pow(10, 8)) / math.Pow(10, 8)
-		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = math.Floor(entry.BalanceRemaining.BaseValue*100) / 100
+		entry.BalanceRemaining.Quantity[oldValue] = 0
+		entry.BalanceRemaining.Quantity[newValue] = math.Floor(entry.Allocation.Quantity*math.Pow(10, 8)) / math.Pow(10, 8)
+		entry.BalanceRemaining.Amount = entry.QuotePriceEntry * entry.BalanceRemaining.Quantity[newValue]
+		entry.BalanceRemaining.Value = math.Floor(entry.BalanceRemaining.Amount*100) / 100
 
 	} else if index == 2 {
 
 		//      -- BALANCE REMAINING --
-		entry.BalanceRemaining.BaseAmount[oldValue] = asset.BaseAmount
-		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor((entry.BalanceRemaining.BaseAmount[oldValue]-entry.ChangeAmount.BaseQuantity)*math.Pow(10, 8)) / math.Pow(10, 8)
-		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = math.Floor(entry.BalanceRemaining.BaseValue*100) / 100
+		entry.BalanceRemaining.Quantity[oldValue] = asset.Quantity
+		entry.BalanceRemaining.Quantity[newValue] = math.Floor((entry.BalanceRemaining.Quantity[oldValue]-entry.Allocation.Quantity)*math.Pow(10, 8)) / math.Pow(10, 8)
+		entry.BalanceRemaining.Amount = entry.QuotePriceEntry * entry.BalanceRemaining.Quantity[newValue]
+		entry.BalanceRemaining.Value = math.Floor(entry.BalanceRemaining.Amount*100) / 100
 
 	} else if index == 4 {
 
 		//      -- BALANCE REMAINING --
-		entry.BalanceRemaining.BaseAmount[oldValue] = asset.BaseAmount
-		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor((entry.BalanceRemaining.BaseAmount[oldValue]-entry.ChangeAmount.BaseQuantity)*math.Pow(10, 8)) / math.Pow(10, 8)
-		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = math.Floor(entry.USDPriceEntry*entry.BalanceRemaining.BaseAmount[newValue]*100) / 100
-		// entry.BalanceRemaining.USDValue = entry.USDPriceEntry * entry.BalanceRemaining.BaseValue
+		entry.BalanceRemaining.Quantity[oldValue] = asset.Quantity
+		entry.BalanceRemaining.Quantity[newValue] = math.Floor((entry.BalanceRemaining.Quantity[oldValue]-entry.Allocation.Quantity)*math.Pow(10, 8)) / math.Pow(10, 8)
+		entry.BalanceRemaining.Amount = entry.QuotePriceEntry * entry.BalanceRemaining.Quantity[newValue]
+		entry.BalanceRemaining.Value = math.Floor(entry.USDPriceEntry*entry.BalanceRemaining.Quantity[newValue]*100) / 100
+		// entry.BalanceRemaining.Value = entry.USDPriceEntry * entry.BalanceRemaining.Amount
 
 	} else if index == 5 {
 
 		//      -- BALANCE REMAINING --
-		entry.BalanceRemaining.BaseAmount[oldValue] = 0
-		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor(entry.ChangeAmount.BaseQuantity*math.Pow(10, 8)) / math.Pow(10, 8)
-		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = math.Floor(entry.USDPriceEntry*entry.BalanceRemaining.BaseValue*100) / 100
+		entry.BalanceRemaining.Quantity[oldValue] = 0
+		entry.BalanceRemaining.Quantity[newValue] = math.Floor(entry.Allocation.Quantity*math.Pow(10, 8)) / math.Pow(10, 8)
+		entry.BalanceRemaining.Amount = entry.QuotePriceEntry * entry.BalanceRemaining.Quantity[newValue]
+		entry.BalanceRemaining.Value = math.Floor(entry.USDPriceEntry*entry.BalanceRemaining.Amount*100) / 100
 
 	} else if index == 6 {
 
 		//      -- BALANCE REMAINING --
-		entry.BalanceRemaining.BaseAmount[oldValue] = asset.BaseAmount
-		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor((entry.BalanceRemaining.BaseAmount[oldValue]-entry.ChangeAmount.BaseQuantity)*math.Pow(10, 8)) / math.Pow(10, 8)
-		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = math.Floor(entry.USDPriceEntry*entry.BalanceRemaining.BaseValue*100) / 100
+		entry.BalanceRemaining.Quantity[oldValue] = asset.Quantity
+		entry.BalanceRemaining.Quantity[newValue] = math.Floor((entry.BalanceRemaining.Quantity[oldValue]-entry.Allocation.Quantity)*math.Pow(10, 8)) / math.Pow(10, 8)
+		entry.BalanceRemaining.Amount = entry.QuotePriceEntry * entry.BalanceRemaining.Quantity[newValue]
+		entry.BalanceRemaining.Value = math.Floor(entry.USDPriceEntry*entry.BalanceRemaining.Amount*100) / 100
 
 	} else if index == 7 {
 
 		//      -- BALANCE REMAINING --
-		entry.BalanceRemaining.BaseAmount[oldValue] = 0
-		entry.BalanceRemaining.BaseAmount[newValue] = math.Floor(entry.ChangeAmount.BaseQuantity*math.Pow(10, 8)) / math.Pow(10, 8)
-		entry.BalanceRemaining.BaseValue = entry.QuotePriceEntry * entry.BalanceRemaining.BaseAmount[newValue]
-		entry.BalanceRemaining.USDValue = math.Floor(entry.BalanceRemaining.BaseValue*100) / 100
+		entry.BalanceRemaining.Quantity[oldValue] = 0
+		entry.BalanceRemaining.Quantity[newValue] = math.Floor(entry.Allocation.Quantity*math.Pow(10, 8)) / math.Pow(10, 8)
+		entry.BalanceRemaining.Amount = entry.QuotePriceEntry * entry.BalanceRemaining.Quantity[newValue]
+		entry.BalanceRemaining.Value = math.Floor(entry.BalanceRemaining.Amount*100) / 100
 
 	}
 }
 
-func updateHoldings(index int, entry *CostBasisEntry, asset *AssetCostBasis, trade *tradeLog, transaction *TransactionEntry) {
-
+func updateHoldings(index int, entry *CostBasisEntry, asset *AssetCostBasis, log *tradeLog, transaction *TransactionEntry) {
+	// what should it do or consider?
+	entry.Holdings.Base = log.balance.base
+	entry.Holdings.Quote = log.balance.quote
 }
 
 func updatePNL(index int, entry *CostBasisEntry, asset *AssetCostBasis, log *tradeLog, transaction *TransactionEntry) {
+
+	// several ways to implement tracking of unrealized PNL
+	// record of last traded price of order pair and last USD Price value of order pair
+	// for every trade iterate over asset balance and pull from api the price and value of traded date
+	// real time -> ticker rate -> pull price data -> iterate over asset balance and compute unreal holdings
+
+	// for every trade need to iterate over asset balance
+	// 	-> pull price data from api for each asset
+	//	-> or record last traded price of that asset and use that info if no api access (not as accurate)
+	//	-> compute order price with asset balance  (asset balance / order price)  order pair balance in quote
+	//	-> computer usd price with asset balance in quote value -> (asset balance in quote value * usd price)
+
+	// iterate on a ticker rate (most up to date and accurate)
+	// 	-> pull price data from api for each asset
+	//	-> compute order price with asset balance  (asset balance / order price)  order pair balance in quote
+	//	-> computer usd price with asset balance in quote value -> (asset balance in quote value * usd price)
+
+	// in this function we will not update the unrealized PNL and will not be on cost basis entry
 
 	// isAppend [1, 5, 7]
 	// isDeduct isUSD [2]
@@ -306,18 +327,18 @@ func updatePNL(index int, entry *CostBasisEntry, asset *AssetCostBasis, log *tra
 		entry.PNL.Total = 0
 
 	} else {
+		// have unnessary conditions doing unnessary calcultions. need figure out want to keep and clean up.
 		// doesn't account for fee amount
-		entry.PNL.Amount = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.BaseQuantity) // - (transaction.fee || 0);
+		entry.PNL.Amount = entry.Allocation.Value - (entry.USDPriceEntry * entry.Allocation.Quantity) // - (transaction.fee || 0);
 
 		if index == 2 {
-			entry.PNL.Total = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.BaseQuantity) // - (transaction.fee || 0)
 		} else if index == 4 {
-			entry.PNL.Total = entry.ChangeAmount.USDValue - (entry.QuotePriceEntry * entry.ChangeAmount.BaseQuantity * entry.USDPriceEntry) // - (transaction.fee || 0)
 		} else if index == 6 {
-			entry.PNL.Amount = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.QuoteAmount)
-			entry.PNL.Total = entry.ChangeAmount.USDValue - (entry.USDPriceEntry * entry.ChangeAmount.QuoteAmount) // - (transaction.fee || 0)
+			entry.PNL.Amount = entry.Allocation.Value - (entry.USDPriceEntry * entry.Allocation.Amount) // - (transaction.fee || 0)
 		}
-		log.statement.PNL = entry.PNL.Amount
+
+		entry.PNL.Total = math.Floor(log.statement.PNL*100+entry.PNL.Amount*100) / 100
+		log.statement.PNL = entry.PNL.Total
 	}
 }
 
@@ -338,22 +359,21 @@ func (e *CostBasisEntry) lastUSDPrice() float64 {
 func (e *CostBasisEntry) filter(properties []string) []string {
 	var t table = make(map[string]string)
 	t = map[string]string{
-		"Transaction ID -> Credit": fmt.Sprint(e.TransactionID.Credit),                      // Transaction ID format
-		"Transaction ID -> Debit":  fmt.Sprint(e.TransactionID.Debit),                       // Transaction ID format
-		"Quote Price -> Entry":     formatCurrency(e.QuotePriceEntry, e.quote()),            // formatCurrency
-		"Quote Price -> Exit":      formatCurrency(e.QuotePriceExit, e.quote()),             // formatCurrency
-		"USD Price -> Entry":       dollarFormat(e.USDPriceEntry),                           // dollarFormat
-		"USD Price -> Exit":        dollarFormat(e.USDPriceExit),                            // dollarFormat
-		"Allocation -> Quantity":   cryptoFormat(e.ChangeAmount.BaseQuantity),               // cryptoFormat
-		"Allocation -> Amount":     formatCurrency(e.ChangeAmount.QuoteAmount, e.quote()),   // formatCurrency
-		"Allocation -> Value":      dollarFormat(e.ChangeAmount.USDValue),                   // dollarFormat
-		"Balance -> Quantity":      fmt.Sprint(e.BalanceRemaining.BaseAmount),               // cryptoFormat
-		"Balance -> Amount":        formatCurrency(e.BalanceRemaining.BaseValue, e.quote()), // formatCurrency
-		"Balance -> Value":         dollarFormat(e.BalanceRemaining.USDValue),               // dollarFormat
-		"Holdings -> Balance":      cryptoFormat(e.Holdings.TotalBaseBalance),               // cryptoFormat
-		"Holdings -> unrealized":   cryptoFormat(e.Holdings.UnrealizedPNL),                  // cryptoFormat
-		"PNL -> Amount":            dollarFormat(e.PNL.Amount),                              // dollarFormat
-		"PNL -> Total":             dollarFormat(e.PNL.Total)}                               // dollarFormat
+		"Transaction ID -> Credit": fmt.Sprint(e.TransactionID.Credit),                   // Transaction ID format
+		"Transaction ID -> Debit":  fmt.Sprint(e.TransactionID.Debit),                    // Transaction ID format
+		"Quote Price -> Entry":     formatCurrency(e.QuotePriceEntry, e.quote()),         // formatCurrency
+		"Quote Price -> Exit":      formatCurrency(e.QuotePriceExit, e.quote()),          // formatCurrency
+		"USD Price -> Entry":       dollarFormat(e.USDPriceEntry),                        // dollarFormat
+		"USD Price -> Exit":        dollarFormat(e.USDPriceExit),                         // dollarFormat
+		"Allocation -> Quantity":   cryptoFormat(e.Allocation.Quantity),                  // cryptoFormat
+		"Allocation -> Amount":     formatCurrency(e.Allocation.Amount, e.quote()),       // formatCurrency
+		"Allocation -> Value":      dollarFormat(e.Allocation.Value),                     // dollarFormat
+		"Balance -> Quantity":      fmt.Sprint(e.BalanceRemaining.Quantity),              // cryptoFormat
+		"Balance -> Amount":        formatCurrency(e.BalanceRemaining.Amount, e.quote()), // formatCurrency
+		"Balance -> Value":         dollarFormat(e.BalanceRemaining.Value),               // dollarFormat
+		"Holdings -> Balance":      cryptoFormat(e.Holdings.Base),                        // cryptoFormat
+		"PNL -> Amount":            dollarFormat(e.PNL.Amount),                           // dollarFormat
+		"PNL -> Total":             dollarFormat(e.PNL.Total)}                            // dollarFormat
 
 	if e.QuotePriceExit == 0.0 {
 		t["Quote Price -> Exit"] = "-"
