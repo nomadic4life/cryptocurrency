@@ -32,6 +32,7 @@ type TransactionEntry struct {
 type CostBasisEntry struct {
 	meta struct {
 		orderPair string
+		orderType string
 		date      int
 	}
 	TransactionID

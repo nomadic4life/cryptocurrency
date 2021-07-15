@@ -174,6 +174,8 @@ func createRow(fields []string, width, offset int) []string {
 func (a *Account) display() {
 	properties := make([][]string, 2)
 	sheet := make([][][]string, 2)
+	header := make([]table, 2)
+	fields := make([]table, 2)
 
 	properties[0] = []string{
 		"Transaction ID",
@@ -186,21 +188,79 @@ func (a *Account) display() {
 		"USD Price Value"}
 
 	properties[1] = []string{
-		"Transaction ID",
-		"Quote Price Entry",
-		"Quote Price Exit",
-		"USD Price Entry",
-		"USD Price Exit",
-		// "Allocation -> Quantity", // bugged
+		"Transaction ID -> Credit",
+		"Transaction ID -> Debit",
+		"Quote Price -> Entry",
+		"Quote Price -> Exit",
+		"USD Price -> Entry",
+		"USD Price -> Exit",
+		"Allocation -> Quantity",
 		"Allocation -> Amount",
 		"Allocation -> Value",
 		"Balance -> Quantity",
 		"Balance -> Amount",
 		"Balance -> Value",
-		// "Holdings -> Balance",
-		// "Holdings -> unrealized", // bugged
+		"Holdings -> Balance",
+		// "Holdings -> unrealized",
 		"PNL -> Amount",
 		"PNL -> Total"}
+
+	header[0] = map[string]string{
+		"Transaction ID":  "TRANSACTION",
+		"Order Date":      "ORDER",
+		"Order Pair":      "ORDER",
+		"Order Type":      "ORDER",
+		"Order Price":     "ORDER",
+		"Order Quantity":  "ORDER",
+		"Order Amount":    "ORDER",
+		"USD Price Value": "USD PRICE",
+		"Fee Amount":      "FEE"}
+
+	header[1] = map[string]string{
+		"Transaction ID -> Credit": "ID",
+		"Transaction ID -> Debit":  "ID",
+		"Quote Price -> Entry":     "QUOTE PRICE",
+		"Quote Price -> Exit":      "QUOTE PRICE",
+		"USD Price -> Entry":       "USD PRICE",
+		"USD Price -> Exit":        "USD PRICE",
+		"Allocation -> Quantity":   "ALLOCATION",
+		"Allocation -> Amount":     "ALLOCATION",
+		"Allocation -> Value":      "ALLOCATION",
+		"Balance -> Quantity":      "BALANCE",
+		"Balance -> Amount":        "BALANCE",
+		"Balance -> Value":         "BALANCE",
+		"Holdings -> Balance":      "HOLDINGS",
+		"Holdings -> Unrealized":   "HOLDINGS",
+		"PNL -> Amount":            "PNL",
+		"PNL -> Total":             "PNL"}
+
+	fields[0] = map[string]string{
+		"Transaction ID":  "ID",
+		"Order Pair":      "PAIR",
+		"Order Type":      "TYPE",
+		"Order Price":     "PRICE",
+		"Order Quantity":  "QAUNTITY",
+		"Order Amount":    "AMOUNT",
+		"USD Price Value": "VALUE",
+		"Fee Amount":      "FEE"}
+
+	fields[1] = map[string]string{
+		"Transaction ID -> Credit": "CREDIT",
+		"Transaction ID -> Debit":  "DEBIT",
+		"Quote Price -> Entry":     "ENTRY",
+		"Quote Price -> Exit":      "EXIT",
+		"USD Price -> Entry":       "ENTRY",
+		"USD Price -> Exit":        "EXIT",
+		"Allocation -> Quantity":   "QUANTITY",
+		"Allocation -> Amount":     "AMOUNT",
+		"Allocation -> Value":      "VALUE",
+		"Balance -> Quantity":      "QUANTITY",
+		"Balance -> Amount":        "AMOUNT",
+		"Balance -> Value":         "VALUE",
+		"Holdings -> Balance":      "BALANCE",
+		"Holdings -> Unrealized":   "UNREALIZED",
+		"PNL -> Amount":            "AMOUNT",
+		"PNL -> Total":             "TOTAL"}
 
 	transactions := make([][]string, 0, len(a.Ledger.Transactions))
 
@@ -209,7 +269,9 @@ func (a *Account) display() {
 		transactions = append(transactions, a.Ledger.Transactions[i].filter(properties[0]))
 	}
 
-	sheet[0] = createSheet(properties[0], transactions)
+	// sheet[0] = createSheet(properties[0], transactions)
+	// fmt.Println(header[0])
+	sheet[0] = createSheet(header[0].filter(properties[0]), fields[0].filter(properties[0]), transactions)
 
 	// display transactions
 	fmt.Println()
@@ -229,7 +291,8 @@ func (a *Account) display() {
 		costBases = append(costBases, a.Ledger.CostBases[i].filter(properties[1]))
 	}
 
-	sheet[1] = createSheet(properties[1], costBases)
+	// sheet[0] = createSheet(properties[0], transactions)
+	sheet[1] = createSheet(header[1].filter(properties[1]), fields[1].filter(properties[1]), costBases)
 
 	// display costBases
 	fmt.Println()
@@ -243,21 +306,29 @@ func (a *Account) display() {
 	fmt.Println()
 }
 
-func createSheet(fields []string, data [][]string) [][]string {
+func createSheet(header, fields []string, data [][]string) [][]string {
 
 	// OPTIONS:
 	// Headder Offset -> 0
 	// Data Offset -> 1
 	// field Size -> 20
 
-	sheet := make([][]string, 0, len(data)+1)
+	sheet := make([][]string, 0, len(data)+2)
 
-	// header
-	sheet = append(sheet, createRow(fields, 20, 0))
+	// main header
+	if len(header) == 1 {
+		sheet = append(sheet, createRow(header, 200, 80))
+
+	} else {
+		sheet = append(sheet, createRow(header, 16, 0))
+	}
+
+	// sub header
+	sheet = append(sheet, createRow(fields, 16, 0))
 
 	// body
 	for i := 0; i < len(data); i++ {
-		sheet = append(sheet, createRow(data[i], 20, 1))
+		sheet = append(sheet, createRow(data[i], 16, 1))
 	}
 
 	return sheet

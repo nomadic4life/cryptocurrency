@@ -335,21 +335,22 @@ func (e *CostBasisEntry) lastUSDPrice() float64 {
 func (e *CostBasisEntry) filter(properties []string) []string {
 	var t table = make(map[string]string)
 	t = map[string]string{
-		"Transaction ID":         fmt.Sprint(e.TransactionID),                             // Transaction ID format
-		"Quote Price Entry":      formatCurrency(e.QuotePriceEntry, e.quote()),            // formatCurrency
-		"Quote Price Exit":       formatCurrency(e.QuotePriceExit, e.quote()),             // formatCurrency
-		"USD Price Entry":        dollarFormat(e.USDPriceEntry),                           // dollarFormat
-		"USD Price Exit":         dollarFormat(e.USDPriceExit),                            // dollarFormat
-		"Allocation -> Quantity": cryptoFormat(e.ChangeAmount.BaseQuantity),               // cryptoFormat
-		"Allocation -> Amount":   formatCurrency(e.ChangeAmount.QuoteAmount, e.quote()),   // formatCurrency
-		"Allocation -> Value":    dollarFormat(e.ChangeAmount.USDValue),                   // dollarFormat
-		"Balance -> Quantity":    fmt.Sprint(e.BalanceRemaining.BaseAmount),               // cryptoFormat
-		"Balance -> Amount":      formatCurrency(e.BalanceRemaining.BaseValue, e.quote()), // formatCurrency
-		"Balance -> Value":       dollarFormat(e.BalanceRemaining.USDValue),               // dollarFormat
-		"Holdings -> Balance":    cryptoFormat(e.Holdings.TotalBaseBalance),               // cryptoFormat
-		"Holdings -> unrealized": cryptoFormat(e.Holdings.UnrealizedPNL),                  // cryptoFormat
-		"PNL -> Amount":          dollarFormat(e.PNL.Amount),                              // dollarFormat
-		"PNL -> Total":           dollarFormat(e.PNL.Total)}                               // dollarFormat
+		"Transaction ID -> Credit": fmt.Sprint(e.TransactionID.Credit),                      // Transaction ID format
+		"Transaction ID -> Debit":  fmt.Sprint(e.TransactionID.Debit),                       // Transaction ID format
+		"Quote Price -> Entry":     formatCurrency(e.QuotePriceEntry, e.quote()),            // formatCurrency
+		"Quote Price -> Exit":      formatCurrency(e.QuotePriceExit, e.quote()),             // formatCurrency
+		"USD Price -> Entry":       dollarFormat(e.USDPriceEntry),                           // dollarFormat
+		"USD Price -> Exit":        dollarFormat(e.USDPriceExit),                            // dollarFormat
+		"Allocation -> Quantity":   cryptoFormat(e.ChangeAmount.BaseQuantity),               // cryptoFormat
+		"Allocation -> Amount":     formatCurrency(e.ChangeAmount.QuoteAmount, e.quote()),   // formatCurrency
+		"Allocation -> Value":      dollarFormat(e.ChangeAmount.USDValue),                   // dollarFormat
+		"Balance -> Quantity":      fmt.Sprint(e.BalanceRemaining.BaseAmount),               // cryptoFormat
+		"Balance -> Amount":        formatCurrency(e.BalanceRemaining.BaseValue, e.quote()), // formatCurrency
+		"Balance -> Value":         dollarFormat(e.BalanceRemaining.USDValue),               // dollarFormat
+		"Holdings -> Balance":      cryptoFormat(e.Holdings.TotalBaseBalance),               // cryptoFormat
+		"Holdings -> unrealized":   cryptoFormat(e.Holdings.UnrealizedPNL),                  // cryptoFormat
+		"PNL -> Amount":            dollarFormat(e.PNL.Amount),                              // dollarFormat
+		"PNL -> Total":             dollarFormat(e.PNL.Total)}                               // dollarFormat
 
 	return t.filter(properties)
 }
