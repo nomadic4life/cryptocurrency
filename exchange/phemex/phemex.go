@@ -1,24 +1,31 @@
 package phemex
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 type Account struct {
 	Accounts map[string]TradeAccount
 }
 
 type TradeAccount struct {
-	MarketSymbol          string
-	TotalBalance          float64
-	AvailableBalance      float64
-	Leverage              float64
-	RiskLimit             float64
-	InitialMarginRate     float64
-	MaintenanceMarginRate float64
-	ActiveOrders          map[int]ActiveOrder // map[id]ActiveOrder
-	ConditionalOrders     []ConditionalOrder
-	OpenPosition
-	ClosedPositions []ClosedPosition
-	*Configuration
+	meta              *accountMeta
+	activeOrders      *map[int]ActiveOrder // map[id]ActiveOrder
+	conditionalOrders *[]ConditionalOrder
+	openPosition      *OpenPosition
+	closedPostion     *[]ClosedPosition
+	configuration     *Configuration
+}
+
+type accountMeta struct {
+	marketSymbol      string
+	totalBalance      float64
+	avialableBalance  float64
+	leverage          float64
+	riskLimit         float64
+	initialMarginRate float64
+	maintenanceRate   float64
 }
 
 type Configuration struct {
@@ -140,100 +147,100 @@ type Position struct {
 	OpenFee           float64
 }
 
-// // on program boot up
-// // 	-> pull data from Database that is relevent to account info and active trades
-// //	-> pull data from exchange that is relevent to acocunt info and active trades
-// //	-> compare data from database to exchange
-// //	-> update with current/correct account data information
-// //	-> track and monitor relevent market symbol data
-// //	-> post trades when an event is triggered
+// on program boot up
+// 	-> pull data from Database that is relevent to account info and active trades
+//	-> pull data from exchange that is relevent to acocunt info and active trades
+//	-> compare data from database to exchange
+//	-> update with current/correct account data information
+//	-> track and monitor relevent market symbol data
+//	-> post trades when an event is triggered
 
-// // processes of program
-// //	-> execute trades through SDK to Exchange API
-// // 	-> set triggers and automate trades, configure events algorithms
-// //	-> track and monitor exhange data of symbols
-// //	-> data processing, data anylsis of historic data and monitored data
-// //	-> store data -> account data, tracked data, events, proccessed data, anylized data, historic data
-// //	-> front end to interface with backend/daemon
-// //	->	-> display data in a meaningful way, layout, graph visualized
-// //	-> 	-> interact -> set trades, triggers, deposit, withdraw, manage
-// //	-> 	-> manage user account info
+// processes of program
+//	-> execute trades through SDK to Exchange API
+// 	-> set triggers and automate trades, configure events algorithms
+//	-> track and monitor exhange data of symbols
+//	-> data processing, data anylsis of historic data and monitored data
+//	-> store data -> account data, tracked data, events, proccessed data, anylized data, historic data
+//	-> front end to interface with backend/daemon
+//	->	-> display data in a meaningful way, layout, graph visualized
+//	-> 	-> interact -> set trades, triggers, deposit, withdraw, manage
+//	-> 	-> manage user account info
 
-// func ExchangeFeeAmount(value float64, marketOrder string) float64 {
+func ExchangeFeeAmount(value float64, marketOrder string) float64 {
 
-// 	rate := 0.0
+	rate := 0.0
 
-// 	if marketOrder == "taker" {
-// 		rate = -0.0075
-// 	} else if marketOrder == "maker" {
-// 		rate = 0.0025
-// 	}
+	if marketOrder == "taker" {
+		rate = -0.0075
+	} else if marketOrder == "maker" {
+		rate = 0.0025
+	}
 
-// 	return truncate((value * rate), math.Pow(10, 8))
-// }
+	return truncate((value * rate), math.Pow(10, 8))
+}
 
-// func FundingFeeAmount(value, rate float64) float64 {
-// 	// pull rate and last traded mark price or pull funded fee amount from api every 8 hours
-// 	return truncate((value * rate), math.Pow(10, 8))
-// }
+func FundingFeeAmount(value, rate float64) float64 {
+	// pull rate and last traded mark price or pull funded fee amount from api every 8 hours
+	return truncate((value * rate), math.Pow(10, 8))
+}
 
-// type Trade struct {
-// 	*Account
-// }
+type Trade struct {
+	*Account
+}
 
-// func CreateTrade() {}
+func CreateTrade() {}
 
-// func (trade *Trade) Long(price float64, quantity int64, order string) {
-// 	// Limit
-// 	// -> Limit Price
-// 	// -> Quanitity
-// 	// -> Order Value
-// 	// -> Available Balance
-// 	// -> Cost
-// 	// Options
-// 	// -> Post-Only
-// 	// 	-> GoodTillCancel
-// 	// -> Reduce-Only
-// 	// 	-> GoodTillCancel
-// 	// 	-> ImmediateOrCancel
-// 	// 	-> FillOrKill
-// 	// -> BracketOrder
-// 	// 	-> Order type: [Limit]
-// 	// 	-> TP [Ticks]
-// 	// 	-> Order type: [Limit]
-// 	// 	-> SL [Ticks]
-// 	// 	-> Trigger: Last Price
-// 	// 	-> GoodTillCancel
+func (trade *Trade) Long(price float64, quantity int64, order string) {
+	// Limit
+	// -> Limit Price
+	// -> Quanitity
+	// -> Order Value
+	// -> Available Balance
+	// -> Cost
+	// Options
+	// -> Post-Only
+	// 	-> GoodTillCancel
+	// -> Reduce-Only
+	// 	-> GoodTillCancel
+	// 	-> ImmediateOrCancel
+	// 	-> FillOrKill
+	// -> BracketOrder
+	// 	-> Order type: [Limit]
+	// 	-> TP [Ticks]
+	// 	-> Order type: [Limit]
+	// 	-> SL [Ticks]
+	// 	-> Trigger: Last Price
+	// 	-> GoodTillCancel
 
-// 	// Market
-// 	// -> Quanitity
-// 	// -> Order Value
-// 	// -> Available Balance
-// 	// -> Cost
+	// Market
+	// -> Quanitity
+	// -> Order Value
+	// -> Available Balance
+	// -> Cost
 
-// 	// Conditional
-// 	// -> Market
-// 	//	-> Trigger Price
-// 	//	-> Trigger By [Last Price, Mark Price]
-// 	//	-> Quantity
-// 	// 	-> Cost
-// 	//	-> Trigger
-// 	// -> Limit
-// 	//	-> Trigger Price
-// 	//	-> Trigger By [Last Price, Mark Price]
-// 	//	-> Limit Price
-// 	//	-> Quantity
-// 	// 	-> Cost
-// 	//	-> Trigger
-// 	// Options
-// 	// -> Post-Only
-// 	// 	-> GoodTillCancel
-// 	// -> Close on Trigger
-// 	// 	-> GoodTillCancel
-// 	// 	-> ImmediateOrCancel
-// 	// 	-> FillOrKill
+	// Conditional
+	// -> Market
+	//	-> Trigger Price
+	//	-> Trigger By [Last Price, Mark Price]
+	//	-> Quantity
+	// 	-> Cost
+	//	-> Trigger
+	// -> Limit
+	//	-> Trigger Price
+	//	-> Trigger By [Last Price, Mark Price]
+	//	-> Limit Price
+	//	-> Quantity
+	// 	-> Cost
+	//	-> Trigger
+	// Options
+	// -> Post-Only
+	// 	-> GoodTillCancel
+	// -> Close on Trigger
+	// 	-> GoodTillCancel
+	// 	-> ImmediateOrCancel
+	// 	-> FillOrKill
 
-// }
+}
 
 // func (trade *Trade) Short(price float64, size int64) {
 
@@ -242,7 +249,7 @@ type Position struct {
 // func calcCost() {
 // 	// [short, long], leverage, quantity, price, -/+takerFee, initialMargin, maintenanceMargin
 
-// 	// ((quantity / price) * takerFeeRate / leverage) + (((quantity / price) * initialMarginRate) + ((quantity / price) * maintenanceMarginRate)) * 0.1
+// 	// ((quantity / price) * takerFeeRate / leverage) + (((quantity / price) * initialMarginRate) + ((quantity / price) * maintenanceRate)) * 0.1
 // }
 
 // func (a *TradeAccount) LimitTrade(price float64, quantity int64, options []string) {}
@@ -267,11 +274,12 @@ type Position struct {
 
 // }
 
-func CreateTradeAccount(symbol ...string) *TradeAccount {
+func CreateTradeAccount(symbol string) *TradeAccount {
 
 	account := new(TradeAccount)
+	account.setUp()
 	account.SetDefaultConfiguration()
-	account.SetMarketSymbol(symbol[0])
+	account.SetMarketSymbol(symbol)
 	account.SetRiskLimit(0.0)
 	account.SetLeverage(0.0)
 	account.SetBalance(0.0)
@@ -279,14 +287,22 @@ func CreateTradeAccount(symbol ...string) *TradeAccount {
 	return account
 }
 
+func (a *TradeAccount) setUp() {
+	a.meta = new(accountMeta)
+	a.activeOrders = new(map[int]ActiveOrder)
+	a.closedPostion = new([]ClosedPosition)
+	a.conditionalOrders = new([]ConditionalOrder)
+	a.openPosition = new(OpenPosition)
+}
+
 func (a *TradeAccount) SetBalance(balance float64) {
-	a.TotalBalance = balance
-	a.AvailableBalance = a.TotalBalance
+	a.meta.totalBalance = balance
+	a.meta.avialableBalance = a.meta.totalBalance
 }
 
 func (a *TradeAccount) SetDefaultConfiguration() {
 	config := new(Configuration)
-	a.Configuration = config
+	a.configuration = config
 
 	config.Limit.OrderCondition = []string{"Post-Only"}
 	config.Limit.TimeInforce = "GoodTillCancel"
@@ -308,70 +324,79 @@ func (a *TradeAccount) SetDefaultConfiguration() {
 }
 
 func (a *TradeAccount) SetLeverage(leverage float64) {
-	a.Leverage = math.Floor(leverage*100) / 100
+	a.meta.leverage = math.Floor(leverage*100) / 100
 
-	if a.Leverage > 100.00 {
-		a.Leverage = 100.00
-	} else if a.Leverage < 1.00 {
-		a.Leverage = 1.00
+	if a.meta.leverage > 100.00 {
+		a.meta.leverage = 100.00
+	} else if a.meta.leverage < 1.00 {
+		a.meta.leverage = 1.00
 	}
 }
 
 func (a *TradeAccount) SetMarketSymbol(symbol string) {
 	if symbol != "" {
-		a.MarketSymbol = symbol
+		a.meta.marketSymbol = symbol
 	} else {
-		a.MarketSymbol = "BTCUSD"
+		a.meta.marketSymbol = "BTCUSD"
 	}
 }
 
 func (a *TradeAccount) SetRiskLimit(risk float64) {
-	a.RiskLimit = risk
+	a.meta.riskLimit = risk
 
-	if a.MarketSymbol == "BTCUSD" {
+	if a.meta.marketSymbol == "BTCUSD" {
 
-		if a.RiskLimit <= 100 {
-			a.InitialMarginRate = 0.01
-			a.MaintenanceMarginRate = 0.005
-			// a.MaxLeverage = 100
-		} else if a.RiskLimit <= 150 {
-			a.InitialMarginRate = 0.015
-			a.MaintenanceMarginRate = 0.01
-			// a.MaxLeverage = 100
-		} else if a.RiskLimit <= 200 {
-			a.InitialMarginRate = 0.02
-			a.MaintenanceMarginRate = 0.015
-			// a.MaxLeverage = 100
-		} else if a.RiskLimit <= 250 {
-			a.InitialMarginRate = 0.025
-			a.MaintenanceMarginRate = 0.02
-			// a.MaxLeverage = 100
-		} else if a.RiskLimit <= 300 {
-			a.InitialMarginRate = 0.03
-			a.MaintenanceMarginRate = 0.025
-			// a.MaxLeverage = 100
-		} else if a.RiskLimit <= 350 {
-			a.InitialMarginRate = 0.035
-			a.MaintenanceMarginRate = 0.03
-			// a.MaxLeverage = 100
-		} else if a.RiskLimit <= 400 {
-			a.InitialMarginRate = 0.04
-			a.MaintenanceMarginRate = 0.035
-			// a.MaxLeverage = 100
-		} else if a.RiskLimit <= 450 {
-			a.InitialMarginRate = 0.045
-			a.MaintenanceMarginRate = 0.04
-			// a.MaxLeverage = 100
-		} else if a.RiskLimit <= 500 {
-			a.InitialMarginRate = 0.05
-			a.MaintenanceMarginRate = 0.0045
-			// a.MaxLeverage = 100
-		} else if a.RiskLimit <= 550 {
-			a.InitialMarginRate = 0.055
-			a.MaintenanceMarginRate = 0.05
-			// a.MaxLeverage = 100
+		if a.meta.riskLimit <= 100 {
+			a.meta.initialMarginRate = 0.01
+			a.meta.maintenanceRate = 0.005
+			// a.meta.MaxLeverage = 100
+		} else if a.meta.riskLimit <= 150 {
+			a.meta.initialMarginRate = 0.015
+			a.meta.maintenanceRate = 0.01
+			// a.meta.MaxLeverage = 100
+		} else if a.meta.riskLimit <= 200 {
+			a.meta.initialMarginRate = 0.02
+			a.meta.maintenanceRate = 0.015
+			// a.meta.MaxLeverage = 100
+		} else if a.meta.riskLimit <= 250 {
+			a.meta.initialMarginRate = 0.025
+			a.meta.maintenanceRate = 0.02
+			// a.meta.MaxLeverage = 100
+		} else if a.meta.riskLimit <= 300 {
+			a.meta.initialMarginRate = 0.03
+			a.meta.maintenanceRate = 0.025
+			// a.meta.MaxLeverage = 100
+		} else if a.meta.riskLimit <= 350 {
+			a.meta.initialMarginRate = 0.035
+			a.meta.maintenanceRate = 0.03
+			// a.meta.MaxLeverage = 100
+		} else if a.meta.riskLimit <= 400 {
+			a.meta.initialMarginRate = 0.04
+			a.meta.maintenanceRate = 0.035
+			// a.meta.MaxLeverage = 100
+		} else if a.meta.riskLimit <= 450 {
+			a.meta.initialMarginRate = 0.045
+			a.meta.maintenanceRate = 0.04
+			// a.meta.MaxLeverage = 100
+		} else if a.meta.riskLimit <= 500 {
+			a.meta.initialMarginRate = 0.05
+			a.meta.maintenanceRate = 0.0045
+			// a.meta.MaxLeverage = 100
+		} else if a.meta.riskLimit <= 550 {
+			a.meta.initialMarginRate = 0.055
+			a.meta.maintenanceRate = 0.05
+			// a.meta.MaxLeverage = 100
 		}
 	}
+}
+
+func (a *TradeAccount) GetAccount() {
+	fmt.Println("Status: \t", a.meta)
+	fmt.Println("Active Orders: \t", a.activeOrders)
+	fmt.Println("Conditional Orders: \t", a.conditionalOrders)
+	fmt.Println("Open Postion: \t", a.openPosition)
+	fmt.Println("Closed Positions: \t", a.closedPostion)
+	// fmt.Println("Config: \t", a.configuration)
 }
 
 // Create TradeAccount with Default values
