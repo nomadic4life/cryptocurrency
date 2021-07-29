@@ -5,6 +5,9 @@ import (
 	"math"
 )
 
+const TAKER_FEE_RATE = 0.00075
+const MAKER_FEE_RATE = 0.00025
+
 type Account struct {
 	Accounts map[string]TradeAccount
 }
@@ -26,6 +29,10 @@ type accountMeta struct {
 	riskLimit         float64
 	initialMarginRate float64
 	maintenanceRate   float64
+	maxCost           struct {
+		long  float64
+		short float64
+	}
 }
 
 type Configuration struct {
@@ -188,92 +195,6 @@ type Trade struct {
 	*Account
 }
 
-func CreateTrade() {}
-
-func (trade *Trade) Long(price float64, quantity int64, order string) {
-	// Limit
-	// -> Limit Price
-	// -> Quanitity
-	// -> Order Value
-	// -> Available Balance
-	// -> Cost
-	// Options
-	// -> Post-Only
-	// 	-> GoodTillCancel
-	// -> Reduce-Only
-	// 	-> GoodTillCancel
-	// 	-> ImmediateOrCancel
-	// 	-> FillOrKill
-	// -> BracketOrder
-	// 	-> Order type: [Limit]
-	// 	-> TP [Ticks]
-	// 	-> Order type: [Limit]
-	// 	-> SL [Ticks]
-	// 	-> Trigger: Last Price
-	// 	-> GoodTillCancel
-
-	// Market
-	// -> Quanitity
-	// -> Order Value
-	// -> Available Balance
-	// -> Cost
-
-	// Conditional
-	// -> Market
-	//	-> Trigger Price
-	//	-> Trigger By [Last Price, Mark Price]
-	//	-> Quantity
-	// 	-> Cost
-	//	-> Trigger
-	// -> Limit
-	//	-> Trigger Price
-	//	-> Trigger By [Last Price, Mark Price]
-	//	-> Limit Price
-	//	-> Quantity
-	// 	-> Cost
-	//	-> Trigger
-	// Options
-	// -> Post-Only
-	// 	-> GoodTillCancel
-	// -> Close on Trigger
-	// 	-> GoodTillCancel
-	// 	-> ImmediateOrCancel
-	// 	-> FillOrKill
-
-}
-
-// func (trade *Trade) Short(price float64, size int64) {
-
-// }
-
-// func calcCost() {
-// 	// [short, long], leverage, quantity, price, -/+takerFee, initialMargin, maintenanceMargin
-
-// 	// ((quantity / price) * takerFeeRate / leverage) + (((quantity / price) * initialMarginRate) + ((quantity / price) * maintenanceRate)) * 0.1
-// }
-
-// func (a *TradeAccount) LimitTrade(price float64, quantity int64, options []string) {}
-
-// func (a *TradeAccount) MarketTrade(price float64, quantity int64, side string) {}
-
-// func (a *TradeAccount) Trade(price float64, quantity int64, order []string) {
-// 	const ORDER = 0
-// 	const SIDE = 1
-// 	feeRate := 0.0
-
-// 	if order[ORDER] == "LIMIT" {
-// 		feeRate = -0.00025
-// 	} else if order[SIDE] == "LONG" && order[ORDER] == "MARKET" {
-// 		feeRate = +0.00075
-// 	} else if order[SIDE] == "SHORT" && order[ORDER] == "MARKET" {
-// 		feeRate = -0.00075
-// 	}
-// 	// order [["Long", "Short"], ["Limit", "Market"]]
-// 	// order[1]["Market"] -> FeeRate = +0.00075
-// 	// order[1]["Limit"] -> FeeRate = -0.00025
-
-// }
-
 func CreateTradeAccount(symbol string) *TradeAccount {
 
 	account := new(TradeAccount)
@@ -298,6 +219,9 @@ func (a *TradeAccount) setUp() {
 func (a *TradeAccount) SetBalance(balance float64) {
 	a.meta.totalBalance = balance
 	a.meta.avialableBalance = a.meta.totalBalance
+	if balance > 0.0 {
+		a.CalcMaxMargin()
+	}
 }
 
 func (a *TradeAccount) SetDefaultConfiguration() {
@@ -399,5 +323,82 @@ func (a *TradeAccount) GetAccount() {
 	// fmt.Println("Config: \t", a.configuration)
 }
 
+func (a *TradeAccount) calcCost(side string, value float64) float64 {
+	// [short, long], leverage, quantity, price, -/+takerFee, initialMargin, maintenanceMargin
+	// ((qty / price * initMarginRate) + (qty / price * maintRate)) * 0.1) + (qty / price * -/+takerFeeRate / leverage)
+
+	factor := math.Pow(10, 8)
+
+	initialMargin := truncate(value/a.meta.leverage, factor)
+
+	orderMargin := truncate((value * a.meta.initialMarginRate), factor)
+
+	maintenanceMargin := truncate((value * a.meta.maintenanceRate), factor)
+
+	margin := truncate(((orderMargin + maintenanceMargin) * 0.1), factor)
+
+	takerFee := truncate((value * TAKER_FEE_RATE / a.meta.leverage), factor)
+
+	if side == "Long" {
+		return (margin + takerFee) + initialMargin
+	} else if side == "Short" {
+		return (margin - takerFee) + initialMargin
+	}
+	return 0.0
+}
+
+func (a *TradeAccount) CalcMaxMargin() {
+
+	find := func(side string) float64 {
+		max := a.meta.totalBalance
+		base := truncate((a.calcCost(side, max) - max), math.Pow(10, 8))
+		min := truncate((a.meta.totalBalance - base), math.Pow(10, 8))
+		mid := truncate((min + (base / 2)), math.Pow(10, 8))
+		result := a.calcCost(side, mid)
+
+		// fmt.Println(max, mid, min, base, result)
+
+		for result != a.meta.totalBalance {
+
+			if base == 0.00000001 {
+				fmt.Println(base)
+			}
+
+			if base == 0 {
+				min = min + 0.00000001
+				mid = truncate((min), math.Pow(10, 8))
+				result = a.calcCost(side, mid)
+				if result > a.meta.totalBalance {
+					mid = truncate((mid - 0.00000001), math.Pow(10, 8))
+					break
+				}
+
+			} else if result > a.meta.totalBalance {
+				max = mid
+				base = truncate((a.calcCost(side, max) - a.meta.totalBalance), math.Pow(10, 8))
+				mid = truncate((min + (base / 2)), math.Pow(10, 8))
+
+			} else if result < a.meta.totalBalance {
+				min = truncate((max - base), math.Pow(10, 8))
+				base = truncate((a.calcCost(side, max) - a.meta.totalBalance), math.Pow(10, 8))
+				mid = truncate((min + (base / 2)), math.Pow(10, 8))
+
+			}
+
+			result = a.calcCost(side, mid)
+
+		}
+
+		// fmt.Println(max, mid, min, base, result)
+		return mid
+	}
+
+	a.meta.maxCost.long = find("Long")
+	a.meta.maxCost.short = find("Short")
+}
+
 // Create TradeAccount with Default values
 // Config TradeAccount with Default Configuration
+// removed variadic, converted to private data
+
+// 8, 12, 18
