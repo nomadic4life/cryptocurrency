@@ -1,178 +1,144 @@
 package phemex
 
-// import (
-// 	"math"
-// )
+import "math"
 
-// type Trade struct {
-// 	price float64
-// 	size  int64
-// }
+type Account struct {
+	Accounts map[string]TradeAccount
+}
 
-// type Position struct {
-// 	Symbol               string
-// 	Order                string // [long, short]
-// 	Size                 int64
-// 	Value                float64
-// 	leverage             float64
-// 	AverageEntryPrice    float64
-// 	LiquidationPrice     float64
-// 	BankruptPrice        float64
-// 	Margin               float64
-// 	InitialMargin        float64
-// 	MaintenaceMargin     float64
-// 	InitialMarginRate    float64
-// 	MaintenaceMarginRate float64
-// 	RiskLevel            int64
-// 	RiskRate             float64
-// 	ActiveOrders         struct {
-// 		entry []Order
-// 		exit  []Order
-// 	}
-// 	Fills struct {
-// 		entry []Fill
-// 		exit  []Fill
-// 	} // [entry, exits]
+type TradeAccount struct {
+	MarketSymbol          string
+	TotalBalance          float64
+	AvailableBalance      float64
+	Leverage              float64
+	RiskLimit             float64
+	InitialMarginRate     float64
+	MaintenanceMarginRate float64
+	ActiveOrders          map[int]ActiveOrder // map[id]ActiveOrder
+	ConditionalOrders     []ConditionalOrder
+	OpenPosition
+	ClosedPositions []ClosedPosition
+	*Configuration
+}
 
-// }
+type Configuration struct {
+	Limit struct {
+		OrderCondition []string
+		TimeInforce    string
+		PostOnly       struct {
+			TimeInforce string
+		}
+		ReduceOnly struct {
+			TimeInforce string
+		}
+		BracketOrder struct {
+			OrderType   string
+			Trigger     string
+			TimeInforce string
+		}
+	}
+	Conditional struct {
+		Limit struct {
+			TriggerBy      string
+			OrderCondition []string
+			TimeInforce    string
+			PostOnly       struct {
+				TimeInforce string
+			}
+			CloseOnTrigger struct {
+				TimeInforce string
+			}
+		}
+		Market struct {
+			TriggerBy      string
+			OrderCondition string
+		}
+	}
+}
 
-// type Fill struct {
-// 	order string // [entry, exit]
-// 	price float64
-// 	size  int64
-// }
+type ActiveOrder struct {
+	Side       string
+	Symbol     string
+	Quantity   int64
+	OrderPrice float64
+	OrderValue float64
+	Filled     int64
+	Remaining  int64
+	// TakeProfit
+	// StopLoss
+	FillPrice float64
+	Type      string
+	Status    string
+	Time      string
+}
 
-// type Order struct {
-// 	order string // [entry, exit]
-// 	Price float64
-// 	Size  int64
-// }
+type ConditionalOrder struct {
+	Symbol     string
+	Quantity   int64
+	OrderPrice float64
+	// trigger
+	// ActivationPrice
+	// TriggeringPrice // (Distance)
+	Type   string
+	Status string
+	Time   string
+}
 
-// type OpenPosition struct {
-// 	OpenPrice        float64
-// 	ContractQuantity int64
-// 	OrderValue       float64
-// 	PositionValue    float64
-// 	Leverage         float64
-// 	InitialMargin    float64
-// 	MaintenaceMargin float64
-// 	Margin           float64
-// }
+type TradeInput struct {
+	Symbol      string
+	Side        string
+	Quantity    int64
+	Price       float64
+	Leverage    float64
+	OrderType   string
+	OrderOption string
+	OrderLife   string
+}
 
-// // type crypto float64
+type OpenPosition struct { // TradeAccount, TradePosition
+	Symbol            string
+	Side              string
+	Size              int64
+	Value             float64
+	AvgEntryPrice     float64
+	MarkPrice         float64
+	LiquidationPrice  float64
+	BankruptPrice     float64
+	Margin            float64
+	InitialMargin     float64
+	MaintenanceMargin float64
+	// PositionMargin    float64
+	// OrderMargin       float64
+	// MarginBalance     float64
+	PNL struct {
+		UnrealisedPNL float64
+		RealisedPNL   float64
+	}
+	TradeOrders struct {
+		OpenTrade  []Position
+		CloseTrade []ClosedPosition
+	}
+	OrderFees struct {
+		OpenFees    []float64
+		CloseFees   []float64
+		FundingFees []float64
+	}
+	// TakeProfit float64
+	// StopLoss   float64
+}
 
-// func Open(leverage, price float64, size int64) {
-// 	position := new(OpenPosition)
-// 	position.OpenPrice = price
-// 	position.ContractQuantity = size
-// 	position.OrderValue = Value(price, size)
-// }
-
-// func Value(price float64, size int64) float64 {
-// 	// price PRICE, size int64 -> Value
-// 	factor := math.Pow(10.0, 8.0)
-// 	return truncate((float64(size) / price), factor)
-// }
-
-// func Amount(price, value float64) float64 {
-// 	// price Price, value Value
-// 	factor := math.Pow(10.0, 2.0)
-// 	return truncate((value * price), factor)
-// }
-
-// func CountractSize(price, value float64) int64 {
-// 	// price Price, value Value
-// 	return int64(Amount(price, value))
-// }
-
-// func Long(entryPrice, exitPrice float64, size int64) [4]float64 {
-// 	entryValue := Value(entryPrice, size)
-// 	exitValue := Value(exitPrice, size)
-// 	proceeds := exit(entryValue, exitValue)
-// 	gross := Total(exitValue, proceeds)
-
-// 	return [4]float64{proceeds, entryValue, exitValue, gross}
-// }
-
-// func Short(entryPrice, exitPrice float64, size int64) [4]float64 {
-// 	entryValue := Value(entryPrice, size)
-// 	exitValue := Value(exitPrice, size)
-// 	proceeds := exit(exitValue, entryValue)
-// 	gross := Total(entryValue, proceeds)
-
-// 	// total := Amount(exitPrice, gross)
-
-// 	return [4]float64{proceeds, entryValue, exitValue, gross}
-// }
-
-// func short(entryValue, exitValue float64) float64 {
-// 	factor := math.Pow(10.0, 8.0)
-// 	return truncate((exitValue - entryValue), factor)
-// }
-
-// func long(entryValue, exitValue float64) float64 {
-// 	factor := math.Pow(10.0, 8.0)
-// 	return truncate((entryValue - exitValue), factor)
-// }
-
-// func exit(a, b float64) float64 {
-// 	factor := math.Pow(10.0, 8.0)
-// 	return truncate((a - b), factor)
-// }
-
-// func Total(base, proceeds float64) float64 {
-// 	factor := math.Pow(10.0, 8.0)
-// 	return truncate(base+proceeds, factor)
-// }
-
-// // func truncate(a, b float64) float64 {
-// // 	// truncate
-// // 	return math.Floor(a*b) / b
-// // }
-
-// func AveragePrice(orders []Order) float64 {
-
-// 	size := 0.0
-// 	sum := 0.0
-
-// 	for i := 0; i < len(orders); i++ {
-// 		value := Value(orders[i].Price, orders[i].Size)
-// 		sum = math.Floor((sum+value)*math.Pow(10, 8)) / math.Pow(10, 8)
-// 		size += float64(orders[i].Size)
-// 	}
-
-// 	return math.Floor(size/sum*10) / 10
-// }
-
-// func findNearestIntervial(price float64) float64 {
-// 	cent := math.Floor((math.Ceil(price) - price) * 100)
-
-// 	if 25 <= cent && cent < 75 {
-// 		return ((math.Floor(price) * 100) + 50) / 100
-// 	}
-
-// 	return math.Round(price)
-// }
-
-// // structs
-// //	-> Trade
-// //	-> Postion
-// //	-> Record
-// // 	-> Transaction
-// //	-> CostBasisRecord
-// //	-> CostBasisQueue
-// //	-> OpenPosition
-// //	-> ClosedPosition
-
-// // accrue
-// // total
-// // aggregate
-// // accrual
-// // return
-// // yeild
-// // profit
-// // gain
-// // gross
+type Position struct {
+	Symbol            string
+	Side              string
+	Quantity          int64
+	OrderValue        float64
+	leverage          float64
+	EntryPrice        float64
+	OrderMargin       float64
+	InitialMargin     float64
+	MaintenanceMargin float64
+	OpenFee           float64
+}
 
 // // on program boot up
 // // 	-> pull data from Database that is relevent to account info and active trades
@@ -192,3 +158,221 @@ package phemex
 // //	->	-> display data in a meaningful way, layout, graph visualized
 // //	-> 	-> interact -> set trades, triggers, deposit, withdraw, manage
 // //	-> 	-> manage user account info
+
+// func ExchangeFeeAmount(value float64, marketOrder string) float64 {
+
+// 	rate := 0.0
+
+// 	if marketOrder == "taker" {
+// 		rate = -0.0075
+// 	} else if marketOrder == "maker" {
+// 		rate = 0.0025
+// 	}
+
+// 	return truncate((value * rate), math.Pow(10, 8))
+// }
+
+// func FundingFeeAmount(value, rate float64) float64 {
+// 	// pull rate and last traded mark price or pull funded fee amount from api every 8 hours
+// 	return truncate((value * rate), math.Pow(10, 8))
+// }
+
+// type Trade struct {
+// 	*Account
+// }
+
+// func CreateTrade() {}
+
+// func (trade *Trade) Long(price float64, quantity int64, order string) {
+// 	// Limit
+// 	// -> Limit Price
+// 	// -> Quanitity
+// 	// -> Order Value
+// 	// -> Available Balance
+// 	// -> Cost
+// 	// Options
+// 	// -> Post-Only
+// 	// 	-> GoodTillCancel
+// 	// -> Reduce-Only
+// 	// 	-> GoodTillCancel
+// 	// 	-> ImmediateOrCancel
+// 	// 	-> FillOrKill
+// 	// -> BracketOrder
+// 	// 	-> Order type: [Limit]
+// 	// 	-> TP [Ticks]
+// 	// 	-> Order type: [Limit]
+// 	// 	-> SL [Ticks]
+// 	// 	-> Trigger: Last Price
+// 	// 	-> GoodTillCancel
+
+// 	// Market
+// 	// -> Quanitity
+// 	// -> Order Value
+// 	// -> Available Balance
+// 	// -> Cost
+
+// 	// Conditional
+// 	// -> Market
+// 	//	-> Trigger Price
+// 	//	-> Trigger By [Last Price, Mark Price]
+// 	//	-> Quantity
+// 	// 	-> Cost
+// 	//	-> Trigger
+// 	// -> Limit
+// 	//	-> Trigger Price
+// 	//	-> Trigger By [Last Price, Mark Price]
+// 	//	-> Limit Price
+// 	//	-> Quantity
+// 	// 	-> Cost
+// 	//	-> Trigger
+// 	// Options
+// 	// -> Post-Only
+// 	// 	-> GoodTillCancel
+// 	// -> Close on Trigger
+// 	// 	-> GoodTillCancel
+// 	// 	-> ImmediateOrCancel
+// 	// 	-> FillOrKill
+
+// }
+
+// func (trade *Trade) Short(price float64, size int64) {
+
+// }
+
+// func calcCost() {
+// 	// [short, long], leverage, quantity, price, -/+takerFee, initialMargin, maintenanceMargin
+
+// 	// ((quantity / price) * takerFeeRate / leverage) + (((quantity / price) * initialMarginRate) + ((quantity / price) * maintenanceMarginRate)) * 0.1
+// }
+
+// func (a *TradeAccount) LimitTrade(price float64, quantity int64, options []string) {}
+
+// func (a *TradeAccount) MarketTrade(price float64, quantity int64, side string) {}
+
+// func (a *TradeAccount) Trade(price float64, quantity int64, order []string) {
+// 	const ORDER = 0
+// 	const SIDE = 1
+// 	feeRate := 0.0
+
+// 	if order[ORDER] == "LIMIT" {
+// 		feeRate = -0.00025
+// 	} else if order[SIDE] == "LONG" && order[ORDER] == "MARKET" {
+// 		feeRate = +0.00075
+// 	} else if order[SIDE] == "SHORT" && order[ORDER] == "MARKET" {
+// 		feeRate = -0.00075
+// 	}
+// 	// order [["Long", "Short"], ["Limit", "Market"]]
+// 	// order[1]["Market"] -> FeeRate = +0.00075
+// 	// order[1]["Limit"] -> FeeRate = -0.00025
+
+// }
+
+func CreateTradeAccount(symbol ...string) *TradeAccount {
+
+	account := new(TradeAccount)
+	account.SetDefaultConfiguration()
+	account.SetMarketSymbol(symbol[0])
+	account.SetRiskLimit(0.0)
+	account.SetLeverage(0.0)
+	account.SetBalance(0.0)
+
+	return account
+}
+
+func (a *TradeAccount) SetBalance(balance float64) {
+	a.TotalBalance = balance
+	a.AvailableBalance = a.TotalBalance
+}
+
+func (a *TradeAccount) SetDefaultConfiguration() {
+	config := new(Configuration)
+	a.Configuration = config
+
+	config.Limit.OrderCondition = []string{"Post-Only"}
+	config.Limit.TimeInforce = "GoodTillCancel"
+	config.Limit.PostOnly.TimeInforce = "GoodTillCancel"
+	config.Limit.ReduceOnly.TimeInforce = "GoodTillCancel"
+	config.Limit.BracketOrder.TimeInforce = "GoodTillCancel"
+	config.Limit.BracketOrder.OrderType = "Limit"
+
+	config.Limit.BracketOrder.Trigger = "Last Price"
+	config.Conditional.Limit.TriggerBy = "Last Price"
+	config.Conditional.Market.TriggerBy = "Last Price"
+
+	config.Conditional.Limit.OrderCondition = []string{"Post-Only"}
+	config.Conditional.Limit.TimeInforce = "GoodTillCancel"
+	config.Conditional.Limit.PostOnly.TimeInforce = "GoodTillCancel"
+	config.Conditional.Limit.CloseOnTrigger.TimeInforce = "GoodTillCancel"
+
+	config.Conditional.Market.OrderCondition = "Close On Trigger"
+}
+
+func (a *TradeAccount) SetLeverage(leverage float64) {
+	a.Leverage = math.Floor(leverage*100) / 100
+
+	if a.Leverage > 100.00 {
+		a.Leverage = 100.00
+	} else if a.Leverage < 1.00 {
+		a.Leverage = 1.00
+	}
+}
+
+func (a *TradeAccount) SetMarketSymbol(symbol string) {
+	if symbol != "" {
+		a.MarketSymbol = symbol
+	} else {
+		a.MarketSymbol = "BTCUSD"
+	}
+}
+
+func (a *TradeAccount) SetRiskLimit(risk float64) {
+	a.RiskLimit = risk
+
+	if a.MarketSymbol == "BTCUSD" {
+
+		if a.RiskLimit <= 100 {
+			a.InitialMarginRate = 0.01
+			a.MaintenanceMarginRate = 0.005
+			// a.MaxLeverage = 100
+		} else if a.RiskLimit <= 150 {
+			a.InitialMarginRate = 0.015
+			a.MaintenanceMarginRate = 0.01
+			// a.MaxLeverage = 100
+		} else if a.RiskLimit <= 200 {
+			a.InitialMarginRate = 0.02
+			a.MaintenanceMarginRate = 0.015
+			// a.MaxLeverage = 100
+		} else if a.RiskLimit <= 250 {
+			a.InitialMarginRate = 0.025
+			a.MaintenanceMarginRate = 0.02
+			// a.MaxLeverage = 100
+		} else if a.RiskLimit <= 300 {
+			a.InitialMarginRate = 0.03
+			a.MaintenanceMarginRate = 0.025
+			// a.MaxLeverage = 100
+		} else if a.RiskLimit <= 350 {
+			a.InitialMarginRate = 0.035
+			a.MaintenanceMarginRate = 0.03
+			// a.MaxLeverage = 100
+		} else if a.RiskLimit <= 400 {
+			a.InitialMarginRate = 0.04
+			a.MaintenanceMarginRate = 0.035
+			// a.MaxLeverage = 100
+		} else if a.RiskLimit <= 450 {
+			a.InitialMarginRate = 0.045
+			a.MaintenanceMarginRate = 0.04
+			// a.MaxLeverage = 100
+		} else if a.RiskLimit <= 500 {
+			a.InitialMarginRate = 0.05
+			a.MaintenanceMarginRate = 0.0045
+			// a.MaxLeverage = 100
+		} else if a.RiskLimit <= 550 {
+			a.InitialMarginRate = 0.055
+			a.MaintenanceMarginRate = 0.05
+			// a.MaxLeverage = 100
+		}
+	}
+}
+
+// Create TradeAccount with Default values
+// Config TradeAccount with Default Configuration
