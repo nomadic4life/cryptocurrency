@@ -29,6 +29,7 @@ type accountMeta struct {
 	riskLimit         float64
 	initialMarginRate float64
 	maintenanceRate   float64
+	MaxLeverage       float64
 	maxCost           struct {
 		long  float64
 		short float64
@@ -270,47 +271,51 @@ func (a *TradeAccount) SetRiskLimit(risk float64) {
 
 	if a.meta.marketSymbol == "BTCUSD" {
 
-		if a.meta.riskLimit <= 100 {
+		if a.meta.riskLimit <= 100.0 {
 			a.meta.initialMarginRate = 0.01
 			a.meta.maintenanceRate = 0.005
-			// a.meta.MaxLeverage = 100
-		} else if a.meta.riskLimit <= 150 {
+			a.meta.MaxLeverage = 100.00
+		} else if a.meta.riskLimit <= 150.0 {
 			a.meta.initialMarginRate = 0.015
 			a.meta.maintenanceRate = 0.01
-			// a.meta.MaxLeverage = 100
-		} else if a.meta.riskLimit <= 200 {
+			a.meta.MaxLeverage = 66.66
+		} else if a.meta.riskLimit <= 200.0 {
 			a.meta.initialMarginRate = 0.02
 			a.meta.maintenanceRate = 0.015
-			// a.meta.MaxLeverage = 100
-		} else if a.meta.riskLimit <= 250 {
+			a.meta.MaxLeverage = 50.00
+		} else if a.meta.riskLimit <= 250.0 {
 			a.meta.initialMarginRate = 0.025
 			a.meta.maintenanceRate = 0.02
-			// a.meta.MaxLeverage = 100
-		} else if a.meta.riskLimit <= 300 {
+			a.meta.MaxLeverage = 40.00
+		} else if a.meta.riskLimit <= 300.0 {
 			a.meta.initialMarginRate = 0.03
 			a.meta.maintenanceRate = 0.025
-			// a.meta.MaxLeverage = 100
-		} else if a.meta.riskLimit <= 350 {
+			a.meta.MaxLeverage = 33.33
+		} else if a.meta.riskLimit <= 350.0 {
 			a.meta.initialMarginRate = 0.035
 			a.meta.maintenanceRate = 0.03
-			// a.meta.MaxLeverage = 100
-		} else if a.meta.riskLimit <= 400 {
+			a.meta.MaxLeverage = 28.57
+		} else if a.meta.riskLimit <= 400.0 {
 			a.meta.initialMarginRate = 0.04
 			a.meta.maintenanceRate = 0.035
-			// a.meta.MaxLeverage = 100
-		} else if a.meta.riskLimit <= 450 {
+			a.meta.MaxLeverage = 25.00
+		} else if a.meta.riskLimit <= 450.0 {
 			a.meta.initialMarginRate = 0.045
 			a.meta.maintenanceRate = 0.04
-			// a.meta.MaxLeverage = 100
-		} else if a.meta.riskLimit <= 500 {
+			a.meta.MaxLeverage = 22.22
+		} else if a.meta.riskLimit <= 500.0 {
 			a.meta.initialMarginRate = 0.05
 			a.meta.maintenanceRate = 0.0045
-			// a.meta.MaxLeverage = 100
-		} else if a.meta.riskLimit <= 550 {
+			a.meta.MaxLeverage = 20.00
+		} else if a.meta.riskLimit <= 550.0 {
 			a.meta.initialMarginRate = 0.055
 			a.meta.maintenanceRate = 0.05
-			// a.meta.MaxLeverage = 100
+			a.meta.MaxLeverage = 18.18
 		}
+	}
+
+	if a.meta.leverage > a.meta.MaxLeverage {
+		a.meta.leverage = a.meta.MaxLeverage
 	}
 }
 
@@ -329,7 +334,7 @@ func (a *TradeAccount) calcCost(side string, value float64) float64 {
 
 	factor := math.Pow(10, 8)
 
-	initialMargin := truncate(value/a.meta.leverage, factor)
+	initialMargin := truncate((value / a.meta.leverage), factor)
 
 	orderMargin := truncate((value * a.meta.initialMarginRate), factor)
 
@@ -339,10 +344,20 @@ func (a *TradeAccount) calcCost(side string, value float64) float64 {
 
 	takerFee := truncate((value * TAKER_FEE_RATE / a.meta.leverage), factor)
 
+	// fmt.Printf("%.8f\t", value)
+	// fmt.Printf("%.8f\t", initialMargin)
+	// fmt.Printf("%.8f\t", orderMargin)
+	// fmt.Printf("%.8f\t", maintenanceMargin)
+	// fmt.Printf("%.8f\t", margin)
+	// fmt.Printf("%.8f\t", takerFee)
+	// fmt.Printf("%.8f\t", truncate(truncate(margin+takerFee, factor)+initialMargin, factor))
+	// fmt.Printf("%.8f\t", (margin-takerFee)+initialMargin)
+	// fmt.Println()
+
 	if side == "Long" {
-		return (margin + takerFee) + initialMargin
+		return truncate(truncate(margin+takerFee, factor)+initialMargin, factor)
 	} else if side == "Short" {
-		return (margin - takerFee) + initialMargin
+		return truncate(truncate(margin-takerFee, factor)+initialMargin, factor)
 	}
 	return 0.0
 }
@@ -350,46 +365,65 @@ func (a *TradeAccount) calcCost(side string, value float64) float64 {
 func (a *TradeAccount) CalcMaxMargin() {
 
 	find := func(side string) float64 {
-		max := a.meta.totalBalance
-		base := truncate((a.calcCost(side, max) - max), math.Pow(10, 8))
-		min := truncate((a.meta.totalBalance - base), math.Pow(10, 8))
-		mid := truncate((min + (base / 2)), math.Pow(10, 8))
-		result := a.calcCost(side, mid)
+		factor := math.Pow(10, 8)
+		value := truncate((a.meta.totalBalance * a.meta.leverage), factor)
 
-		// fmt.Println(max, mid, min, base, result)
+		// setting the risk limit is bugged, need to find the risk limit with a binary search
+		a.SetRiskLimit(value) // <- need to dynamically set risk limit
+		a.GetAccount()
+
+		max := a.meta.totalBalance
+		base := truncate((a.calcCost(side, value) - a.meta.totalBalance), factor)
+		min := truncate((a.meta.totalBalance - base), factor)
+		value = truncate((min * a.meta.leverage), factor)
+		result := a.calcCost(side, value)
+
+		// can remove counter when full functional
+		counter := 0
+
+		for result > a.meta.totalBalance {
+			base = truncate((base * 2), factor)
+			min = truncate((a.meta.totalBalance - base), factor)
+			value = truncate((min * a.meta.leverage), factor)
+			result = a.calcCost(side, value)
+		}
+
+		mid := truncate((min + (base / 2)), factor)
+		value = truncate((mid * a.meta.leverage), factor)
+		result = a.calcCost(side, value)
 
 		for result != a.meta.totalBalance {
 
-			if base == 0.00000001 {
-				fmt.Println(base)
+			counter++
+			if counter == 25 {
+				a.SetRiskLimit(0.0)
+				break
 			}
 
-			if base == 0 {
-				min = min + 0.00000001
-				mid = truncate((min), math.Pow(10, 8))
-				result = a.calcCost(side, mid)
-				if result > a.meta.totalBalance {
-					mid = truncate((mid - 0.00000001), math.Pow(10, 8))
-					break
-				}
+			if base == 0.00000001 {
+				a.SetRiskLimit(0.0)
+				return min
 
 			} else if result > a.meta.totalBalance {
 				max = mid
-				base = truncate((a.calcCost(side, max) - a.meta.totalBalance), math.Pow(10, 8))
-				mid = truncate((min + (base / 2)), math.Pow(10, 8))
+				value = truncate((max * a.meta.leverage), factor)
+				base = math.Ceil((a.calcCost(side, value)-a.meta.totalBalance)*factor) / factor
+				mid = truncate((min + (base / 2)), factor)
 
 			} else if result < a.meta.totalBalance {
-				min = truncate((max - base), math.Pow(10, 8))
-				base = truncate((a.calcCost(side, max) - a.meta.totalBalance), math.Pow(10, 8))
-				mid = truncate((min + (base / 2)), math.Pow(10, 8))
+				min = mid
+				value = truncate((min * a.meta.leverage), factor)
+				base = math.Ceil((a.meta.totalBalance-a.calcCost(side, value))*factor) / factor
+				mid = truncate((min + (base / 2)), factor)
 
 			}
 
-			result = a.calcCost(side, mid)
+			value = truncate((mid * a.meta.leverage), factor)
+			result = a.calcCost(side, value)
 
 		}
 
-		// fmt.Println(max, mid, min, base, result)
+		a.SetRiskLimit(0.0)
 		return mid
 	}
 
