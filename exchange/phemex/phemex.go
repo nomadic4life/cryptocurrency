@@ -1,5 +1,24 @@
 package phemex
 
+// on program boot up
+// 	-> pull data from Database that is relevent to account info and active trades
+//	-> pull data from exchange that is relevent to acocunt info and active trades
+//	-> compare data from database to exchange
+//	-> update with current/correct account data information
+//	-> track and monitor relevent market symbol data
+//	-> post trades when an event is triggered
+
+// processes of program
+//	-> execute trades through SDK to Exchange API
+// 	-> set triggers and automate trades, configure events algorithms
+//	-> track and monitor exhange data of symbols
+//	-> data processing, data anylsis of historic data and monitored data
+//	-> store data -> account data, tracked data, events, proccessed data, anylized data, historic data
+//	-> front end to interface with backend/daemon
+//	->	-> display data in a meaningful way, layout, graph visualized
+//	-> 	-> interact -> set trades, triggers, deposit, withdraw, manage
+//	-> 	-> manage user account info
+
 import (
 	"fmt"
 	"math"
@@ -186,6 +205,19 @@ type CloseTrade struct {
 	}
 }
 
+func CreateTradeAccount(symbol string) *TradeAccount {
+
+	account := new(TradeAccount)
+	account.setUp()
+	account.SetDefaultConfiguration()
+	account.SetMarketSymbol(symbol)
+	account.SetRiskLimit(0.0)
+	account.SetLeverage(0.0)
+	account.SetBalance(0.0)
+
+	return account
+}
+
 func (a *TradeAccount) getFeeRate() float64 {
 	if a.meta.orderType == "Limit" {
 		return MAKER_FEE_RATE
@@ -264,60 +296,6 @@ func (a *TradeAccount) Entry(side string, quantity int64, entryPrice float64) {
 	return
 }
 
-// on program boot up
-// 	-> pull data from Database that is relevent to account info and active trades
-//	-> pull data from exchange that is relevent to acocunt info and active trades
-//	-> compare data from database to exchange
-//	-> update with current/correct account data information
-//	-> track and monitor relevent market symbol data
-//	-> post trades when an event is triggered
-
-// processes of program
-//	-> execute trades through SDK to Exchange API
-// 	-> set triggers and automate trades, configure events algorithms
-//	-> track and monitor exhange data of symbols
-//	-> data processing, data anylsis of historic data and monitored data
-//	-> store data -> account data, tracked data, events, proccessed data, anylized data, historic data
-//	-> front end to interface with backend/daemon
-//	->	-> display data in a meaningful way, layout, graph visualized
-//	-> 	-> interact -> set trades, triggers, deposit, withdraw, manage
-//	-> 	-> manage user account info
-
-func ExchangeFeeAmount(value float64, marketOrder string) float64 {
-
-	rate := 0.0
-
-	if marketOrder == "taker" {
-		rate = -0.0075
-	} else if marketOrder == "maker" {
-		rate = 0.0025
-	}
-
-	return truncate((value * rate), math.Pow(10, 8))
-}
-
-func FundingFeeAmount(value, rate float64) float64 {
-	// pull rate and last traded mark price or pull funded fee amount from api every 8 hours
-	return truncate((value * rate), math.Pow(10, 8))
-}
-
-type Trade struct {
-	*Account
-}
-
-func CreateTradeAccount(symbol string) *TradeAccount {
-
-	account := new(TradeAccount)
-	account.setUp()
-	account.SetDefaultConfiguration()
-	account.SetMarketSymbol(symbol)
-	account.SetRiskLimit(0.0)
-	account.SetLeverage(0.0)
-	account.SetBalance(0.0)
-
-	return account
-}
-
 func (a *TradeAccount) setUp() {
 	a.meta = new(accountMeta)
 	a.meta.orderType = "Limit"
@@ -325,6 +303,7 @@ func (a *TradeAccount) setUp() {
 	a.closedPostion = new([]ClosedPosition)
 	a.conditionalOrders = new([]ConditionalOrder)
 	// a.openPosition = new(Position)
+	return
 }
 
 func (a *TradeAccount) SetBalance(balance float64) {
@@ -592,4 +571,22 @@ func (a *TradeAccount) CalcMaxMargin() {
 	a.meta.maxCost.short = find("Short")
 	a.SetRiskLimit(0.0)
 	a.SetLeverage(prev)
+}
+
+func ExchangeFeeAmount(value float64, marketOrder string) float64 {
+
+	rate := 0.0
+
+	if marketOrder == "taker" {
+		rate = -0.0075
+	} else if marketOrder == "maker" {
+		rate = 0.0025
+	}
+
+	return truncate((value * rate), math.Pow(10, 8))
+}
+
+func FundingFeeAmount(value, rate float64) float64 {
+	// pull rate and last traded mark price or pull funded fee amount from api every 8 hours
+	return truncate((value * rate), math.Pow(10, 8))
 }
