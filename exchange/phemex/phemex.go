@@ -29,7 +29,7 @@ type accountMeta struct {
 	riskLimit         float64
 	initialMarginRate float64
 	maintenanceRate   float64
-	MaxLeverage       float64
+	maxLeverage       float64
 	maxCost           struct {
 		long  float64
 		short float64
@@ -274,58 +274,61 @@ func (a *TradeAccount) SetRiskLimit(risk float64) {
 		if a.meta.riskLimit <= 100.0 {
 			a.meta.initialMarginRate = 0.01
 			a.meta.maintenanceRate = 0.005
-			a.meta.MaxLeverage = 100.00
+			a.meta.maxLeverage = 100.00
 		} else if a.meta.riskLimit <= 150.0 {
 			a.meta.initialMarginRate = 0.015
 			a.meta.maintenanceRate = 0.01
-			a.meta.MaxLeverage = 66.66
+			a.meta.maxLeverage = 66.66
 		} else if a.meta.riskLimit <= 200.0 {
 			a.meta.initialMarginRate = 0.02
 			a.meta.maintenanceRate = 0.015
-			a.meta.MaxLeverage = 50.00
+			a.meta.maxLeverage = 50.0
 		} else if a.meta.riskLimit <= 250.0 {
 			a.meta.initialMarginRate = 0.025
 			a.meta.maintenanceRate = 0.02
-			a.meta.MaxLeverage = 40.00
+			a.meta.maxLeverage = 40.0
 		} else if a.meta.riskLimit <= 300.0 {
 			a.meta.initialMarginRate = 0.03
 			a.meta.maintenanceRate = 0.025
-			a.meta.MaxLeverage = 33.33
+			a.meta.maxLeverage = 33.33
 		} else if a.meta.riskLimit <= 350.0 {
 			a.meta.initialMarginRate = 0.035
 			a.meta.maintenanceRate = 0.03
-			a.meta.MaxLeverage = 28.57
+			a.meta.maxLeverage = 28.57
 		} else if a.meta.riskLimit <= 400.0 {
 			a.meta.initialMarginRate = 0.04
 			a.meta.maintenanceRate = 0.035
-			a.meta.MaxLeverage = 25.00
+			a.meta.maxLeverage = 25.0
 		} else if a.meta.riskLimit <= 450.0 {
 			a.meta.initialMarginRate = 0.045
 			a.meta.maintenanceRate = 0.04
-			a.meta.MaxLeverage = 22.22
+			a.meta.maxLeverage = 22.22
 		} else if a.meta.riskLimit <= 500.0 {
 			a.meta.initialMarginRate = 0.05
 			a.meta.maintenanceRate = 0.0045
-			a.meta.MaxLeverage = 20.00
+			a.meta.maxLeverage = 20.0
 		} else if a.meta.riskLimit <= 550.0 {
 			a.meta.initialMarginRate = 0.055
 			a.meta.maintenanceRate = 0.05
-			a.meta.MaxLeverage = 18.18
+			a.meta.maxLeverage = 18.18
 		}
 	}
 
-	if a.meta.leverage > a.meta.MaxLeverage {
-		a.meta.leverage = a.meta.MaxLeverage
+	if a.meta.leverage > a.meta.maxLeverage {
+		a.meta.leverage = a.meta.maxLeverage
 	}
 }
 
 func (a *TradeAccount) GetAccount() {
+
 	fmt.Println("Status: \t", a.meta)
 	fmt.Println("Active Orders: \t", a.activeOrders)
 	fmt.Println("Conditional Orders: \t", a.conditionalOrders)
 	fmt.Println("Open Postion: \t", a.openPosition)
 	fmt.Println("Closed Positions: \t", a.closedPostion)
+
 	// fmt.Println("Config: \t", a.configuration)
+	fmt.Println()
 }
 
 func (a *TradeAccount) calcCost(side string, value float64) float64 {
@@ -364,22 +367,75 @@ func (a *TradeAccount) calcCost(side string, value float64) float64 {
 
 func (a *TradeAccount) CalcMaxMargin() {
 
+	prev := a.meta.leverage
+
+	factor := math.Pow(10, 8)
+
+	findmaxLeverage := func() {
+
+		list := [10]float64{100.0, 66.66, 50.0, 40.0, 33.33, 28.57, 25.0, 22.22, 20.0, 18.18}
+		values := [10]float64{100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 550.0}
+
+		tier := 0
+		for i := tier; i < len(list)-1; i++ {
+			value := truncate((a.meta.totalBalance * list[i]), factor)
+
+			if value <= values[i] {
+				tier = i
+				break
+			}
+		}
+
+		target := tier
+		spread := 0
+		for i := tier; i > 0; i-- {
+			value := truncate((a.meta.totalBalance * list[i]), factor)
+			if value <= values[target] {
+				spread = tier - i
+			}
+		}
+
+		if spread == 0 && a.meta.leverage > list[tier] {
+			a.SetLeverage(list[tier])
+			return
+		} else if spread == 0 && a.meta.leverage <= list[tier] {
+			return
+		}
+
+		min := list[tier]
+		max := list[tier-1]
+		mid := truncate(min+truncate((max-min), 100)/2, 100)
+		value := truncate((a.meta.totalBalance * mid), factor)
+
+		for value != values[tier-spread] {
+
+			if value > values[tier-spread] {
+				max = mid
+			} else if value < values[tier-spread] {
+				min = mid
+			}
+
+			mid = truncate(min+truncate((max-min), 100)/2, 100)
+			value = truncate((a.meta.totalBalance * mid), factor)
+		}
+
+		if a.meta.leverage > mid {
+			a.SetLeverage(mid)
+		}
+	}
+
 	find := func(side string) float64 {
-		factor := math.Pow(10, 8)
+		findmaxLeverage()
+
 		value := truncate((a.meta.totalBalance * a.meta.leverage), factor)
 
-		// setting the risk limit is bugged, need to find the risk limit with a binary search
-		a.SetRiskLimit(value) // <- need to dynamically set risk limit
-		a.GetAccount()
+		a.SetRiskLimit(value)
 
 		max := a.meta.totalBalance
 		base := truncate((a.calcCost(side, value) - a.meta.totalBalance), factor)
 		min := truncate((a.meta.totalBalance - base), factor)
 		value = truncate((min * a.meta.leverage), factor)
 		result := a.calcCost(side, value)
-
-		// can remove counter when full functional
-		counter := 0
 
 		for result > a.meta.totalBalance {
 			base = truncate((base * 2), factor)
@@ -394,13 +450,7 @@ func (a *TradeAccount) CalcMaxMargin() {
 
 		for result != a.meta.totalBalance {
 
-			counter++
-			if counter == 25 {
-				a.SetRiskLimit(0.0)
-				break
-			}
-
-			if base == 0.00000001 {
+			if base <= 0.00000002 {
 				a.SetRiskLimit(0.0)
 				return min
 
@@ -429,6 +479,8 @@ func (a *TradeAccount) CalcMaxMargin() {
 
 	a.meta.maxCost.long = find("Long")
 	a.meta.maxCost.short = find("Short")
+	a.SetRiskLimit(0.0)
+	a.SetLeverage(prev)
 }
 
 // Create TradeAccount with Default values
