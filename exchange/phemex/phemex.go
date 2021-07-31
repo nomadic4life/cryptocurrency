@@ -5,8 +5,8 @@ import (
 	"math"
 )
 
-const TAKER_FEE_RATE = 0.00075
-const MAKER_FEE_RATE = 0.00025
+const TAKER_FEE_RATE = -0.00075
+const MAKER_FEE_RATE = +0.00025
 
 type Account struct {
 	Accounts map[string]TradeAccount
@@ -15,14 +15,15 @@ type Account struct {
 type TradeAccount struct {
 	meta              *accountMeta
 	activeOrders      *map[int]ActiveOrder // map[id]ActiveOrder
-	conditionalOrders *[]ConditionalOrder
-	openPosition      *OpenPosition
-	closedPostion     *[]ClosedPosition
+	conditionalOrders *[]ConditionalOrder  // probably wont use
+	openPosition      *Position
+	closedPostion     *[]ClosedPosition // is this relevent if I am going to be storing data?
 	configuration     *Configuration
 }
 
 type accountMeta struct {
 	marketSymbol      string
+	orderType         string
 	totalBalance      float64
 	avialableBalance  float64
 	leverage          float64
@@ -110,49 +111,157 @@ type TradeInput struct {
 	OrderLife   string
 }
 
-type OpenPosition struct { // TradeAccount, TradePosition
-	Symbol            string
-	Side              string
-	Size              int64
-	Value             float64
-	AvgEntryPrice     float64
-	MarkPrice         float64
-	LiquidationPrice  float64
-	BankruptPrice     float64
-	Margin            float64
-	InitialMargin     float64
-	MaintenanceMargin float64
+type Position struct { // TradeAccount, TradePosition
+	Symbol        string
+	Side          string
+	Size          int64
+	Value         float64
+	AvgEntryPrice float64 // calculate avg entry price after each trade
+	// MarkPrice        float64 // ticker data from api
+	// LiquidationPrice float64
+	// BankruptPrice    float64
+	Margin float64
+	// InitialMargin     float64 // is this releven? -> maybe should consider from the max perspective instead of total
+	// MaintenanceMargin float64 // is this releven? -> maybe should consider from the max perspective instead of total
 	// PositionMargin    float64
 	// OrderMargin       float64
 	// MarginBalance     float64
+	TradeOrders struct {
+		OpenTrade  []OpenTrade
+		CloseTrade []CloseTrade
+	}
+	OrderFees struct {
+		OpenFees    []float64 // add to balance after each entry
+		CloseFees   []float64 // add to balance after each exit
+		FundingFees []float64 // add to balance after every 8 hour ticker
+	}
 	PNL struct {
 		UnrealisedPNL float64
 		RealisedPNL   float64
 	}
-	TradeOrders struct {
-		OpenTrade  []Position
-		CloseTrade []ClosedPosition
-	}
-	OrderFees struct {
-		OpenFees    []float64
-		CloseFees   []float64
-		FundingFees []float64
-	}
+
 	// TakeProfit float64
 	// StopLoss   float64
 }
 
-type Position struct {
-	Symbol            string
-	Side              string
-	Quantity          int64
-	OrderValue        float64
-	leverage          float64
-	EntryPrice        float64
-	OrderMargin       float64
-	InitialMargin     float64
-	MaintenanceMargin float64
-	OpenFee           float64
+type OpenTrade struct {
+	Symbol      string
+	Side        string
+	Quantity    int64
+	OrderValue  float64
+	leverage    float64
+	EntryPrice  float64
+	OrderMargin float64
+	// InitialMargin     float64 // is this relevent?
+	// MaintenanceMargin float64 // is this relevent?
+	Margin  float64
+	OpenFee float64
+}
+
+type CloseTrade struct {
+	Calc
+	ContractType string
+	Quote        struct { // Contract, Dollar?, USD?
+		Entry       float64
+		Exit        float64
+		PriceChange float64
+		Size        int64
+		PNL         float64 // not very relevent -> should be called yield?
+		Earnings    float64
+		Total       float64 // Gross? // need net?
+	}
+	Value struct { // Settled, Crypto?, Base?
+		Entry       float64
+		Exit        float64
+		PNL         float64 // relevent -> under Revenue struct?
+		Earnings    float64 // relevent -> under Revenue struct?
+		FundingFee  float64 // not relevent, only revelent when entire position is closed.
+		ExchangeFee float64 // ExitFee -> under Revenue struct?
+	}
+	Rate struct {
+		PriceChange float64
+		PNL         float64 // relevent
+		Yield       float64
+		Total       float64
+	}
+}
+
+func (a *TradeAccount) getFeeRate() float64 {
+	if a.meta.orderType == "Limit" {
+		return MAKER_FEE_RATE
+	} else if a.meta.orderType == "Market" {
+		return TAKER_FEE_RATE
+	} else {
+		return 0.0
+	}
+}
+
+func (a *TradeAccount) Entry(side string, quantity int64, entryPrice float64) {
+
+	factor := math.Pow(10, 8)
+
+	feeRate := a.getFeeRate()
+
+	var pos *Position
+
+	if a.openPosition == nil {
+		a.openPosition = new(Position)
+		a.openPosition.Symbol = a.meta.marketSymbol
+		a.openPosition.Side = side
+	}
+
+	pos = a.openPosition
+
+	trade := new(OpenTrade)
+	trade.Symbol = a.meta.marketSymbol
+	trade.leverage = a.meta.leverage
+
+	trade.Side = side
+	trade.Quantity = quantity
+	trade.EntryPrice = entryPrice
+
+	trade.OrderValue = truncate((float64(quantity) / entryPrice), factor)
+	trade.OrderMargin = truncate((trade.OrderValue / trade.leverage), factor)
+
+	// not sure if accurate
+	// trade.InitialMargin = truncate((trade.OrderMargin * a.meta.initialMarginRate), factor)
+	// not sure if accurate
+	// trade.MaintenanceMargin = truncate((trade.OrderMargin * a.meta.maintenanceRate), factor)
+
+	trade.Margin = a.calcCost(side, trade.OrderMargin)
+	trade.OpenFee = truncate((trade.OrderValue * feeRate), factor)
+
+	pos.TradeOrders.OpenTrade = append(pos.TradeOrders.OpenTrade, *trade)
+	pos.OrderFees.OpenFees = append(pos.OrderFees.OpenFees, trade.OpenFee)
+	pos.Size += quantity
+
+	if len(pos.TradeOrders.OpenTrade) == 1 {
+		pos.AvgEntryPrice = trade.EntryPrice
+		pos.Value = trade.OrderValue
+		// pos.InitialMargin = trade.InitialMargin
+		// pos.MaintenanceMargin = trade.MaintenanceMargin
+		pos.Margin = trade.Margin
+
+	} else {
+		// Calculate average price
+		// pos.Value = truncate((pos.Value + trade.OrderValue), factor)
+		// pos.InitialMargin
+		// pos.MaintenanceMargin
+		// pos.Margin
+
+	}
+	// pos.LiquidationPrice
+	// pos.BankruptPrice
+
+	// pos.MarkPrice -> get from API Ticker
+
+	// pos.PNL.UnrealisedPNL -> updated at ticker Rate
+	// pos.PNL.RealisedPNL -> updated at ticker Rate and after each close
+
+	// PositionMargin -> not sure
+	// OrderMargin -> not sure
+	// MarginBalance -> not sure
+	return
 }
 
 // on program boot up
@@ -211,10 +320,11 @@ func CreateTradeAccount(symbol string) *TradeAccount {
 
 func (a *TradeAccount) setUp() {
 	a.meta = new(accountMeta)
+	a.meta.orderType = "Limit"
 	a.activeOrders = new(map[int]ActiveOrder)
 	a.closedPostion = new([]ClosedPosition)
 	a.conditionalOrders = new([]ConditionalOrder)
-	a.openPosition = new(OpenPosition)
+	// a.openPosition = new(Position)
 }
 
 func (a *TradeAccount) SetBalance(balance float64) {
@@ -321,10 +431,10 @@ func (a *TradeAccount) SetRiskLimit(risk float64) {
 
 func (a *TradeAccount) GetAccount() {
 
-	fmt.Println("Status: \t", a.meta)
-	fmt.Println("Active Orders: \t", a.activeOrders)
+	fmt.Println("Status: \t\t", a.meta)
+	fmt.Println("Active Orders: \t\t", a.activeOrders)
 	fmt.Println("Conditional Orders: \t", a.conditionalOrders)
-	fmt.Println("Open Postion: \t", a.openPosition)
+	fmt.Println("Open Postion: \t\t", a.openPosition)
 	fmt.Println("Closed Positions: \t", a.closedPostion)
 
 	// fmt.Println("Config: \t", a.configuration)
@@ -334,6 +444,8 @@ func (a *TradeAccount) GetAccount() {
 func (a *TradeAccount) calcCost(side string, value float64) float64 {
 	// [short, long], leverage, quantity, price, -/+takerFee, initialMargin, maintenanceMargin
 	// ((qty / price * initMarginRate) + (qty / price * maintRate)) * 0.1) + (qty / price * -/+takerFeeRate / leverage)
+	// rounding erros by 1 or 2 sats. but no big deal. will look into it in the future
+	// -> could it be the method of not scaling and using floats?
 
 	factor := math.Pow(10, 8)
 
@@ -347,20 +459,19 @@ func (a *TradeAccount) calcCost(side string, value float64) float64 {
 
 	takerFee := truncate((value * TAKER_FEE_RATE / a.meta.leverage), factor)
 
-	// fmt.Printf("%.8f\t", value)
 	// fmt.Printf("%.8f\t", initialMargin)
 	// fmt.Printf("%.8f\t", orderMargin)
 	// fmt.Printf("%.8f\t", maintenanceMargin)
 	// fmt.Printf("%.8f\t", margin)
 	// fmt.Printf("%.8f\t", takerFee)
 	// fmt.Printf("%.8f\t", truncate(truncate(margin+takerFee, factor)+initialMargin, factor))
-	// fmt.Printf("%.8f\t", (margin-takerFee)+initialMargin)
-	// fmt.Println()
+	// fmt.Print("\n")
 
 	if side == "Long" {
-		return truncate(truncate(margin+takerFee, factor)+initialMargin, factor)
-	} else if side == "Short" {
 		return truncate(truncate(margin-takerFee, factor)+initialMargin, factor)
+
+	} else if side == "Short" {
+		return truncate(truncate(margin+takerFee, factor)+initialMargin, factor)
 	}
 	return 0.0
 }
@@ -482,9 +593,3 @@ func (a *TradeAccount) CalcMaxMargin() {
 	a.SetRiskLimit(0.0)
 	a.SetLeverage(prev)
 }
-
-// Create TradeAccount with Default values
-// Config TradeAccount with Default Configuration
-// removed variadic, converted to private data
-
-// 8, 12, 18
