@@ -19,6 +19,21 @@ package phemex
 //	-> 	-> interact -> set trades, triggers, deposit, withdraw, manage
 //	-> 	-> manage user account info
 
+// CreateTradeAccount -> *TradeAccount
+// 		-> a.setup()
+// 		-> a.SetDefaultConfiguration()
+// 		-> a.SetMarketSymbol(symbol)
+// 		-> a.SetRiskLimit(0.0)
+// 		-> a.SetLeverage(0.0)
+// 		-> a.SetBalance(0.0)
+
+// Trade
+// a.Entry(side, quantity, entryPrice)
+//		-> a.getFeeRate()
+// a.Exit(quantity, exitPrice) -> float64
+//		-> *calc.Long()
+//		-> *calc.Short()
+
 import (
 	"fmt"
 	"math"
@@ -36,7 +51,7 @@ type TradeAccount struct {
 	activeOrders      *map[int]ActiveOrder // map[id]ActiveOrder
 	conditionalOrders *[]ConditionalOrder  // probably wont use
 	openPosition      *Position
-	closedPostion     *[]ClosedPosition // is this relevent if I am going to be storing data?
+	closedPostion     *[]CloseTrade // is this relevent if I am going to be storing data?
 	configuration     *Configuration
 }
 
@@ -205,10 +220,36 @@ type CloseTrade struct {
 	}
 }
 
+// Inverse Contracks [BTC/USD]
+// Value Amount
+//	-> EntryValue 	(Size * Entry)
+// 	-> ExitValue 	(Size * Exit)
+//	-> PNL			(long -> Entry - Exit, short -> Exit - Entry)  [Amount Accumalated from trade] + should include fees?? maybe not
+//	-> Earnings 	(PNL + Entry) [Total -> Total Amount From Trade ,close value] + include ExchangeFee, FundingFee will be tricky if trade was executed on multpile fill orders @ different prices
+//	-> FundingFee 	(variable every 8 hours, +0.0100 base) inputs [maybe condsider not part of trade but calculated to balance seperatly as deductions]
+//	-> ExchangeFee 	(Maker -0.25, +0.75) inputs / calculated [maybe condsider not part of trade but calculated to balance seperatly, or this is part of trade]
+// Rates
+//	-> PriceChange 	(long -> (Exit - Entry) / Entry, short -> (Entry - Exit) / Exit)
+//	-> PNL 			(long -> value.. (Entry - Exit) / Entry, short -> value.. (Exit - Entry) / Entry)
+//	-> Yield 		(Quote.PNL / Quote.Size) [parralle to PriceChange?]
+//	-> Total		((value.Earnings * Exit) - Size) / Size [Parralle to PNL?]
+// Quote
+//	-> EntryPrice (input)
+//	-> ExitPrice (input)
+//	-> PriceChange (long -> Exit - Entry, short -> Entry - Exit)
+//	-> Size (input -> amount at Entry and at exit)
+//	-> PNL (Exit * value.PNL) [yield?]
+//	-> Earnings  [(((value.PNL + value.Entry) * Quote.Exit) - Quote.Size)] [Total USD Value] [difference of size and PNL] [Earnings? Reveune? Returns?]
+//	-> Total (Exit * value.Earnings -> value at exit [amount]) [Total of PNL and Earnings]
+
+type Calc struct {
+	*CloseTrade
+}
+
 func CreateTradeAccount(symbol string) *TradeAccount {
 
 	account := new(TradeAccount)
-	account.setUp()
+	account.setup()
 	account.SetDefaultConfiguration()
 	account.SetMarketSymbol(symbol)
 	account.SetRiskLimit(0.0)
@@ -296,11 +337,30 @@ func (a *TradeAccount) Entry(side string, quantity int64, entryPrice float64) {
 	return
 }
 
-func (a *TradeAccount) setUp() {
+func (a *TradeAccount) Exit(quantity int64, exitPrice float64) float64 {
+
+	trade := new(CloseTrade)
+	trade.Calc.CloseTrade = trade
+
+	trade.Quote.Entry = a.openPosition.AvgEntryPrice
+	trade.Quote.Exit = exitPrice
+	trade.Quote.Size = quantity
+
+	if a.openPosition.Side == "Long" {
+		trade.Calc.Long()
+	} else if a.openPosition.Side == "Short" {
+		trade.Calc.Short()
+	}
+
+	fmt.Print(trade, "\n")
+	return trade.Value.PNL
+}
+
+func (a *TradeAccount) setup() {
 	a.meta = new(accountMeta)
 	a.meta.orderType = "Limit"
 	a.activeOrders = new(map[int]ActiveOrder)
-	a.closedPostion = new([]ClosedPosition)
+	a.closedPostion = new([]CloseTrade)
 	a.conditionalOrders = new([]ConditionalOrder)
 	// a.openPosition = new(Position)
 	return
@@ -590,3 +650,93 @@ func FundingFeeAmount(value, rate float64) float64 {
 	// pull rate and last traded mark price or pull funded fee amount from api every 8 hours
 	return truncate((value * rate), math.Pow(10, 8))
 }
+
+func truncate(a, b float64) float64 {
+	return math.Floor(a*b) / b
+}
+
+func (c *Calc) Value() {
+	c.CloseTrade.Value.Entry = value(c.Quote.Size, c.Quote.Entry)
+	c.CloseTrade.Value.Exit = value(c.Quote.Size, c.Quote.Exit)
+}
+
+func (c *Calc) Long() {
+	c.Calc.Value()
+	c.CloseTrade.Value.PNL = close(c.CloseTrade.Value.Entry, c.CloseTrade.Value.Exit)
+	c.Close()
+}
+
+func (c *Calc) Short() {
+	c.Calc.Value()
+	c.CloseTrade.Value.PNL = close(c.CloseTrade.Value.Exit, c.CloseTrade.Value.Entry)
+	c.Close()
+}
+
+func (c *Calc) Close() {
+	p := c.CloseTrade
+	v := &p.Value
+	q := &p.Quote
+	r := &p.Rate
+
+	q.PriceChange = truncate((q.Exit - q.Entry), math.Pow(10, 2))
+	v.Earnings = truncate((v.PNL + v.Entry), math.Pow(10, 8))
+
+	q.PNL = truncate((q.Exit * v.PNL), math.Pow(10, 2))
+	q.Earnings = truncate(((q.Exit * v.Earnings) - float64(q.Size)), math.Pow(10, 2))
+
+	q.Total = truncate((q.Exit * v.Earnings), math.Pow(10, 2))
+
+	r.PriceChange = truncate((q.PriceChange / q.Entry), math.Pow(10, 5))
+	r.PNL = truncate((v.PNL / v.Entry), math.Pow(10, 5)) // [value] or this should be yield?
+
+	r.Yield = truncate((q.PNL / float64(q.Size)), math.Pow(10, 5))                                     // [quote value] // or this should PNL?
+	r.Total = truncate((((v.Earnings * q.Exit) - float64(q.Size)) / float64(q.Size)), math.Pow(10, 5)) // dollar value
+}
+
+func value(size int64, price float64) float64 {
+	factor := math.Pow(10, 8)
+	return truncate((float64(size) / price), factor)
+}
+
+func Value(size int64, price float64) float64 {
+	return value(size, price)
+}
+
+func close(a, b float64) float64 {
+	factor := math.Pow(10, 8)
+	return truncate((a - b), factor)
+}
+
+// func Run(startPrice, targetPrice, leverage, step float64, size int64) {
+
+// 	entryPrice := startPrice
+// 	exitPrice := entryPrice
+
+// 	orderValue := truncate((float64(size) / entryPrice), math.Pow(10, 8))
+
+// 	initialMargin := truncate((orderValue / leverage), math.Pow(10, 8))
+
+// 	oldSize := size
+
+// 	for entryPrice < targetPrice {
+// 		fmt.Println("\ninitial margin: ", initialMargin, "\nOrder Value: ", orderValue, "\nSize: ", size)
+
+// 		exitPrice = truncate((entryPrice + step), math.Pow(10, 8))
+
+// 		if entryPrice == startPrice {
+// 			exitPrice = truncate((math.Ceil(entryPrice) + step), math.Pow(10, 8))
+// 		}
+
+// 		PNL := Close(entryPrice, exitPrice, size)
+
+// 		initialMargin = truncate((PNL + initialMargin), math.Pow(10, 8))
+
+// 		orderValue = truncate((initialMargin * leverage), math.Pow(10, 8))
+
+// 		entryPrice = exitPrice
+
+// 		size = int64(orderValue * entryPrice)
+// 	}
+
+// 	Close(startPrice, exitPrice, oldSize)
+// }
