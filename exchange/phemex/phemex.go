@@ -33,6 +33,10 @@ package phemex
 // a.Exit(quantity, exitPrice) -> float64
 //		-> *calc.Long()
 //		-> *calc.Short()
+//			-> 	c.Calc.Value()
+//			->	close(EntryValue, ExitValue)
+//			->  c.Close()
+//			-	- calculate values for *CloseTrade struct
 
 import (
 	"fmt"
@@ -346,9 +350,9 @@ func (a *TradeAccount) Exit(quantity int64, exitPrice float64) float64 {
 	trade.Quote.Exit = exitPrice
 	trade.Quote.Size = quantity
 
-	if a.openPosition.Side == "Long" {
+	if a.openPosition.Side == "Short" {
 		trade.Calc.Long()
-	} else if a.openPosition.Side == "Short" {
+	} else if a.openPosition.Side == "Long" {
 		trade.Calc.Short()
 	}
 
