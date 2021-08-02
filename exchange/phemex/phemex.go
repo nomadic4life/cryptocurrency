@@ -350,9 +350,9 @@ func (a *TradeAccount) Exit(quantity int64, exitPrice float64) float64 {
 	trade.Quote.Exit = exitPrice
 	trade.Quote.Size = quantity
 
-	if a.openPosition.Side == "Short" {
+	if a.openPosition.Side == "Long" {
 		trade.Calc.Long()
-	} else if a.openPosition.Side == "Long" {
+	} else if a.openPosition.Side == "Short" {
 		trade.Calc.Short()
 	}
 
@@ -744,3 +744,31 @@ func close(a, b float64) float64 {
 
 // 	Close(startPrice, exitPrice, oldSize)
 // }
+
+// &{{0xc0000a40a0}  {500 600 100 100  20     40   140}   {0.2 0.16666666  0.03333334 0.23333334 0 0} {0.2  0.16666  0.2 0.4}}
+// {{0xc0000a4140}   {500 600 100 100 -20.01 -0.01 99.99} {0.2 0.16666666 -0.03333335 0.16666665 0 0} {0.2 -0.16667 -0.20011 -1e-05}}
+
+// Calc
+// ContractType string
+// Quote        struct { // Contract, Dollar?, USD?
+// 	Entry       float64
+// 	Exit        float64
+// 	PriceChange float64
+// 	Size        int64
+// 	PNL         float64 // not very relevent -> should be called yield?
+// 	Earnings    float64
+// 	Total       float64 // Gross? // need net?
+// }
+// Value struct { // Settled, Crypto?, Base?
+// 	Entry       float64
+// 	Exit        float64
+// 	PNL         float64 // relevent -> under Revenue struct?
+// 	Earnings    float64 // relevent -> under Revenue struct?
+// 	FundingFee  float64 // not relevent, only revelent when entire position is closed.
+// 	ExchangeFee float64 // ExitFee -> under Revenue struct?
+// }
+// Rate struct {
+// 	PriceChange float64
+// 	PNL         float64 // relevent
+// 	Yield       float64
+// 	Total       float64
