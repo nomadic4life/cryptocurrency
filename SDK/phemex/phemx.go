@@ -4,10 +4,12 @@ import (
 	"crypto"
 	"crypto/hmac"
 	_ "crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"hash"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
@@ -73,9 +75,10 @@ const (
 type Client struct {
 	conn   http.Client
 	hmac   hash.Hash
-	header *http.Header
-	host   string
-	apiID  string
+	Host   string `json:"HOST"`
+	ID     string `json:"ID"`
+	Secret string `json:"SECRET"`
+	// header *http.Header
 	// socket websocket
 }
 
@@ -98,12 +101,23 @@ type Request struct {
 func setupClient() *Client {
 	client := new(Client)
 	client.conn = *http.DefaultClient
-	client.hmac = hmac.New(crypto.SHA256.New, []byte("API SECRET"))
-	client.host = "https://api.phemex.com"
-	// read from config.json .env file
-	//	-> api secret
-	//	-> host -> production or test
-	//	-> API-KEY -> headers -> x-phemex-access-token : (id field)
+
+	jsonFile, err := os.Open("./config.json")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer jsonFile.Close()
+
+	byteValue, err := ioutil.ReadAll(jsonFile)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	json.Unmarshal(byteValue, client)
+
+	client.hmac = hmac.New(crypto.SHA256.New, []byte(client.Secret))
+	client.Secret = ""
 
 	return client
 }
@@ -148,12 +162,8 @@ func CreateRequest() {
 		panic("Holy Shit")
 	}
 
-	// x-phemex-access-token : This is API-KEY (id field) from Phemex site.
-	// x-phemex-request-expiry : This describes the Unix EPoch SECONDS to expire the request, normally it should be (Now() + 1 minute)
-	// x-phemex-request-signature : This is HMAC SHA256 signature of the http request. Secret is API Secret, its formula is : HMacSha256( URL Path + QueryString + Expiry + body )
-
 	request.Sign()
-	req.Header.Add("x-phemex-access-token", client.apiID)
+	req.Header.Add("x-phemex-access-token", client.ID)
 	req.Header.Add("x-phemex-request-expiry", request.Expiry)
 	req.Header.Add("x-phemex-request-signature", request.Signature)
 
