@@ -1,6 +1,7 @@
 package phemex
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/hmac"
 	_ "crypto/sha256"
@@ -11,24 +12,19 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
-
-// HEADERS:
-// Every HTTP Rest Request must have the following Headers:
-
-// x-phemex-access-token : This is API-KEY (id field) from Phemex site.
-// x-phemex-request-expiry : This describes the Unix EPoch SECONDS to expire the request, normally it should be (Now() + 1 minute)
-// x-phemex-request-signature : This is HMAC SHA256 signature of the http request. Secret is API Secret, its formula is : HMacSha256( URL Path + QueryString + Expiry + body )
 
 // Optional Headers:
 // x-phemex-request-tracing: a unique string to trace http-request, less than 40 bytes.
 
+// res headers:
 // X-RateLimit-Remaining-CONTRACT, # Remaining request permits in this minute
 // X-RateLimit-Capacity-CONTRACT, # Request ratelimit capacity
 // X-RateLimit-Retry-After-CONTRACT, # Reset timeout in seconds for current ratelimited user
 
-var client = setupClient()
+var client, paths = setupClient()
 
 const (
 	// Order Type Const
@@ -69,8 +65,7 @@ const (
 // NET/HTTP package
 // type Client, Header, Request, Response, File
 
-// ID:   "2b6ba6d3-a14c-44ef-be5b-0e590ab35126"
-// API Secret:   "cgJEMS_iIEnzg6DV9Ac-Eug3XcDy-fIugzeJhU0ohZ43YjJmMTI1Zi1lZDhiLTQ0YjItOGU4NS02YWEwYWUwOThhMjM"
+type Paths []string
 
 type Client struct {
 	conn   http.Client
@@ -89,16 +84,205 @@ type Request struct {
 	URL        string // endpoint + path + query
 	Path       string
 	Query      string
-	Body       string
+	Body       []byte
 	Expiry     string
 	Signature  string // HEADER ->  x-phemex-request-signature
 	Signed     string
 	HMACSHA256 string // URL Path + QueryString + Expiry + body
-	Private    bool
 	// apiSecret = Base64::urlDecode(API Secret)
 }
 
-func setupClient() *Client {
+type Response struct {
+	data []byte
+	req  *Request
+}
+
+type Query struct {
+	currency, ordStatus, symbol, orderID, origClOrdID, clOrdID,
+	price, priceep, orderQty, stopPx, stopPxEp, takeProfit, takeProfitEP,
+	stopLoss, stopLossEp, pegOffsetValueEp, pegPriceType, untriggered,
+	leverage, leverageEr, riskLimit, riskLimitEv, posBalance, posBalanceEv,
+	start, end, offset, limit, tradeType, withCount, market, since, optCode, code string
+}
+
+type Body struct {
+	symbol, clOrdID, side,
+	priceEp, orderQty, ordType,
+	reduceOnly, timeInForce, takeProfitEp,
+	stopLossEp, actionBy, pegPriceType,
+	pegOffsetValueEp, stopPxEp, closeOnTrigger,
+	triggerType, address, amountEv, currency, remark string
+}
+
+func (r *Request) setPath(method, path string) {
+	r.Path = path
+	r.Method = method
+	r.URL = client.Host + r.Path
+}
+
+func (r *Request) setQuery(query map[string]string) {
+	if query != nil {
+		r.URL += "?"
+		list := make([]string, 0, len(query))
+		for key, element := range query {
+			list = append(list, key+"="+element)
+		}
+		r.Query = strings.Join(list, "&")
+		r.URL += r.Query
+	}
+}
+
+func (r *Request) setBody(body map[string]interface{}) {
+	// value := func(a interface{}) string {
+	// 	switch v := a.(type) {
+	// 	case int:
+	// 		return strconv.Itoa(v)
+	// 	case string:
+	// 		return fmt.Sprintf("\"%s\"", v)
+	// 	default:
+	// 		return ""
+
+	// 	}
+
+	// }
+
+	if body != nil {
+		// list := make([]string, 0, len(body))
+		// for key, element := range body {
+		// 	prop := fmt.Sprintf("\"%s\"", key)
+		// 	list = append(list, fmt.Sprintf("%s:%s", prop, value(element)))
+		// }
+		// r.Body = "{" + strings.Join(list, ",") + "}"
+		data, err := json.Marshal(body)
+		if err != nil {
+			panic("OH shit!")
+		}
+		r.Body = data
+	}
+}
+
+func (r *Request) setRequest() {
+	if len(r.Body) == 0 {
+		req, err := http.NewRequest(r.Method, r.URL, nil)
+		if err != nil {
+			panic("Holy Shit")
+		}
+		r.Req = req
+		return
+	}
+
+	req, err := http.NewRequest(r.Method, r.URL, bytes.NewBuffer(r.Body))
+
+	if err != nil {
+		panic("Holy Shit")
+	}
+	r.Req = req
+}
+
+func (r *Request) isPrivate() bool {
+	if r.Path == "/exchange/public/nomics/trades" || r.Path == "/exchange/public/products" {
+		return false
+	}
+	return true
+}
+
+func (r *Request) sign() {
+
+	if r.isPrivate() {
+		minute := 60
+		time := int(time.Now().Unix())
+
+		r.Expiry = strconv.Itoa(time + minute)
+
+		byteMessage := []byte(r.Path + r.Query + r.Expiry + string(r.Body))
+
+		fmt.Printf("\n%s\n", byteMessage)
+
+		client.hmac.Write(byteMessage)
+		r.Signature = fmt.Sprintf("%x", client.hmac.Sum(nil))
+
+		client.hmac.Reset()
+
+		r.Req.Header.Add("x-phemex-access-token", client.ID)
+		r.Req.Header.Add("x-phemex-request-expiry", r.Expiry)
+		r.Req.Header.Add("x-phemex-request-signature", r.Signature)
+	}
+}
+
+func (r *Request) send(res *Response) {
+	r.Req.Header.Add("content-type", "application/json")
+	response, err := client.conn.Do(r.Req)
+	if err != nil {
+		fmt.Printf("The HTTP request failed with error: %s\n", err)
+		return
+	}
+
+	res.data, _ = ioutil.ReadAll(response.Body)
+	res.req = r
+}
+
+func (r *Response) Display() {
+	fmt.Printf("%s", r.data)
+}
+
+func Send(method, path string, query map[string]string, body map[string]interface{}) *Response {
+	request := new(Request)
+	response := new(Response)
+	request.setPath(method, path)
+	request.setQuery(query)
+	request.setBody(body)
+	request.setRequest()
+	request.sign()
+	request.send(response)
+
+	return response
+}
+
+func setupClient() (*Client, *Paths) {
+	// setup client
+	// set up paths
+	// set up websockets
+
+	paths := new(Paths)
+	*paths = append(*paths, "/orders") // POST 	 -> Body {symbol, clOrdID, side, priceEp, ordrQty, actionBy, pegPriceType, pegOffsetValueEp, pegPriceType
+	// 				  									  , reduceOnly, timeInforce, takeProfitEp, StopLossEp, stopPxEp, closeOnTrigger, triggertype}
+	*paths = append(*paths, "/orders/replace")    // PUT 	 -> query
+	*paths = append(*paths, "/orders")            // DELETE -> query {symbol, orderID=[]}
+	*paths = append(*paths, "/orders/cancel")     // DELETE -> query {symbol, orderID}
+	*paths = append(*paths, "/orders/all")        // DELETE -> query {symbol, untriggered, text}
+	*paths = append(*paths, "/orders/activeList") // GET 	 -> query {symbol, ordStatus}
+
+	*paths = append(*paths, "/positions/leverage")  // PUT    -> query {symbol, leverage, leverageEr}
+	*paths = append(*paths, "/positions/riskLimit") // PUT    -> query {symbol, riskLimit, riskLimitEv}
+	*paths = append(*paths, "/positions/assign")    // POST   -> query {symbol, posBalance, posBalanceEv}
+
+	*paths = append(*paths, "/accounts/accountPositions")  // GET    -> query {currency}
+	*paths = append(*paths, "/accounts/positions")         // GET    -> query {currency}
+	*paths = append(*paths, "/phemex-user/users/children") // GET?	-> query {offset, limit, withCount}
+
+	*paths = append(*paths, "/md/orderbook")   // GET	-> query {symbol}
+	*paths = append(*paths, "/md/trade")       // GET	-> query {symbol}
+	*paths = append(*paths, "/md/ticker/24hr") // GET	-> query {symbol}
+
+	*paths = append(*paths, "/exchange/order")       // GET	-> query {symbol, orderID=[]}
+	*paths = append(*paths, "/exchange/order")       // GET	-> query {symbol, clOrd=[]}
+	*paths = append(*paths, "/exchange/order/list")  // GET	-> query {symbol, start, end, offset, limit, ordStatus, withcount}
+	*paths = append(*paths, "/exchange/order/trade") // GET	-> query {symbol, tradeType, start, end, offset, limit, withcount}
+
+	*paths = append(*paths, "/exchange/margins")          // POST	-> Body {btcAmount, btcAmountEv, linkKey, moveOp, usdAmount, usdAmountEv}
+	*paths = append(*paths, "/exchange/margins/transfer") // GET	-> query {start, end, offset, limit, withCount}
+
+	*paths = append(*paths, "/exchange/wallets/transferOut")           // POST	-> Body {amount, amountEv, clientCnt, currency}
+	*paths = append(*paths, "/exchange/wallets/transferIn")            // POST	-> Body {amount, amountEv, clientCnt, currency}
+	*paths = append(*paths, "/exchange/wallets/createWithdraw")        // POST	-> query {optCode} -> Body {address, amountEv, currency}
+	*paths = append(*paths, "/exchange/wallets/confirm/withdraw")      // GET	-> query {code}
+	*paths = append(*paths, "/exchange/wallets/cancelWithdraw")        // POST	-> Body {id}
+	*paths = append(*paths, "/exchange/wallets/withdrawList")          // GET	-> query {currency, limit, offset, withCount}
+	*paths = append(*paths, "/exchange/wallets/createWithdrawAddress") // POST	-> query {optCode} -> Body {address, currency, remark}
+
+	*paths = append(*paths, "/exchange/public/nomics/trades") // GET	-> query {market, since}
+	*paths = append(*paths, "/exchange/public/products")      // GET
+
 	client := new(Client)
 	client.conn = *http.DefaultClient
 
@@ -119,74 +303,13 @@ func setupClient() *Client {
 	client.hmac = hmac.New(crypto.SHA256.New, []byte(client.Secret))
 	client.Secret = ""
 
-	return client
-}
-func (r *Request) Sign() {
-
-	minute := 60
-	time := int(time.Now().Unix())
-	r.Expiry = strconv.Itoa(time + minute)
-
-	byteMessage := []byte(r.Path + r.Query + r.Expiry + r.Body)
-
-	client.hmac.Write(byteMessage)
-	r.Signature = fmt.Sprintf("%x", client.hmac.Sum(nil))
-
-	client.hmac.Reset()
+	return client, paths
 }
 
-// CreateRequest(method, url string, body io.ReadCloser)
-func CreateRequest() {
-	request := new(Request)
-	// https://api.phemex.com/accounts/accountPositions?currency=BTC
-
-	// req, err := http.NewRequest(method, url, body)
-	// if err != nil {
-	// 	panic("Holy Shit")
-	// }
-	// request.Req = req
-
-	// examples
-	// 	req.Header.Add("If-None-Match", `W/"wyzzy"`)
-	// resp, err := client.Do(req)
-
-	request.Method = "GET"
-	request.URL = "https://api.phemex.com/accounts/accountPositions?currency=BTC"
-	request.Path = "/accounts/accountPositions"
-	request.Query = "currency=BTC"
-	request.Body = ""
-	request.Private = false
-
-	req, err := http.NewRequest("GET", "https://api.phemex.com/accounts/accountPositions?currency=BTC", nil)
-	if err != nil {
-		panic("Holy Shit")
-	}
-
-	request.Sign()
-	req.Header.Add("x-phemex-access-token", client.ID)
-	req.Header.Add("x-phemex-request-expiry", request.Expiry)
-	req.Header.Add("x-phemex-request-signature", request.Signature)
-
-	response, err := client.conn.Do(req)
-	if err != nil {
-		fmt.Printf("The HTTP request failed with error: %s\n", err)
-	} else {
-		var data []byte
-		data, _ = ioutil.ReadAll(response.Body)
-
-		// json.Unmarshal(data, &markets)
-		fmt.Printf("RESPONSE %s\n", data)
-		fmt.Println("\n", request.Signature)
-	}
-}
-
-// rest endpoint
-// 	 -> production 	 https://api.phemex.com
-// 	 -> test/dev	 https://testnet-api.phemex.com
-
-// wss endpoint
-//	 -> production 	wss://phemex.com/ws
-//	 -> test/dev		wss://testnet.phemex.com/ws
+// func Req(path string) *Request {
+// 	request := new(Request)
+// 	request.Path = path
+// }
 
 // http return codes
 //	 -> [401] -> unauthenticated
@@ -201,25 +324,8 @@ func CreateRequest() {
 //     "data": <data>	-> operation dependant
 // }
 
-// HTTP Rest Requst Headers:
-//	-> x-phemex-access-token:		-> This is API-KEY (id field) from Phemex site
-//	-> x-phemex-request-expiry:		-> EPoch SECONDS -> (Now() + 1 minute)
-//	-> x-phemex-request-signature: 	-> HMacSha256( URL Path + QueryString + Expiry + body )
-
 // Optional Headers:
 //	-> x-phemex-request-tracing: 	-> a unique string to trace http-request, less than 40 bytes
-
-// https://api.phemex.com/exchange/public/products			<- Query Prducts
-// https://api.phemex.com/md/orderbook?symbol=<symbol>		<- Query Order Book
-// https://api.phemex.com/md/trade?symbol=<symbol>			<- Query Recent Trades
-// https://api.phemex.com/md/ticker/24hr?symbol=<symbol>	<- Query 24 Hours Ticker
-// https://api.phemex.com/exchange/public/nomics/trades?market=<symbol>&since=<since>	<- Query History Trades By symbol
-
-// https://api.phemex.com/orders
-// https://api.phemex.com/accounts/accountPositions?currency=<currency>
-// https://api.phemex.com/accounts/positions?currency=<currency>
-// https://api.phemex.com/positions/leverage?symbol=<symbol>&leverage=<leverage>&leverageEr=<leverageEr>
-// https://api.phemex.com/positions/riskLimit?symbol=<symbol>&riskLimit=<riskLimit>&riskLimitEv=<riskLimitEv>
 
 // - Get Products
 // https://api.phemex.com/exchange/public/products
