@@ -111,6 +111,10 @@ func GetOrders(id, symbol string) *Response {
 	return Send("GET", path, query, nil)
 }
 
+// need to add some validation and sanitation for query and body keys
+// need to create enums for enum keys
+// reconsider inputs for cancel order and get orders
+
 // 	:: ENUMS :: 	-> order input <-
 // side -> ["Buy", "Sell"]
 // orderType -> ["Market", "Limit", "StopLimit", "MarketIfTouched", "LimitIfTouched"]
