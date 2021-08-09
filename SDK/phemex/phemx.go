@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/fasthttp/websocket"
 )
 
 var client, paths = setupClient()
@@ -56,14 +58,20 @@ const (
 
 type Paths []string
 
+type Account struct {
+	Type     string `json:"TYPE"` // ["main", "sub"]
+	ID       string `json:"ID"`
+	hmac     hash.Hash
+	Socket   websocket.Dialer
+	Accounts map[string]*Account
+}
+
 type Client struct {
-	conn   http.Client
-	hmac   hash.Hash
-	Host   string `json:"HOST"`
-	ID     string `json:"ID"`
-	Secret string `json:"SECRET"`
-	// header *http.Header
-	// socket websocket
+	conn       http.Client
+	HostHTTP   string `json:"HOSTHTTP"`
+	HostWSS    string `json:"HOSTWSS"`
+	SocketConn int
+	Account    *Account
 }
 
 type Request struct {
@@ -415,7 +423,7 @@ type Body struct {
 func (r *Request) setPath(method, path string) {
 	r.Path = path
 	r.Method = method
-	r.URL = client.Host + r.Path
+	r.URL = client.HostHTTP + r.Path
 }
 
 func (r *Request) setQuery(query map[string]string) {
@@ -475,12 +483,12 @@ func (r *Request) sign() {
 
 		byteMessage := []byte(r.Path + r.Query + r.Expiry + string(r.Body))
 
-		client.hmac.Write(byteMessage)
-		r.Signature = fmt.Sprintf("%x", client.hmac.Sum(nil))
+		client.Account.hmac.Write(byteMessage)
+		r.Signature = fmt.Sprintf("%x", client.Account.hmac.Sum(nil))
 
-		client.hmac.Reset()
+		client.Account.hmac.Reset()
 
-		r.Req.Header.Add("x-phemex-access-token", client.ID)
+		r.Req.Header.Add("x-phemex-access-token", client.Account.ID)
 		r.Req.Header.Add("x-phemex-request-expiry", r.Expiry)
 		r.Req.Header.Add("x-phemex-request-signature", r.Signature)
 	}
@@ -583,9 +591,6 @@ func setupClient() (*Client, *Paths) {
 	*paths = append(*paths, "/exchange/public/nomics/trades") // GET	-> query {market, since}
 	*paths = append(*paths, "/exchange/public/products")      // GET
 
-	client := new(Client)
-	client.conn = *http.DefaultClient
-
 	jsonFile, err := os.Open("./config.json")
 	if err != nil {
 		fmt.Println(err)
@@ -598,10 +603,42 @@ func setupClient() (*Client, *Paths) {
 		fmt.Println(err)
 	}
 
-	json.Unmarshal(byteValue, client)
+	type Secret struct {
+		Key string `json:"SECRET"`
+	}
 
-	client.hmac = hmac.New(crypto.SHA256.New, []byte(client.Secret))
-	client.Secret = ""
+	data := make(map[string]interface{})
+
+	json.Unmarshal(byteValue, &data)
+
+	client := new(Client)
+	client.conn = *http.DefaultClient
+	client.HostHTTP = data["HOSTHTTP"].(string)
+	client.HostWSS = data["HOSTWSS"].(string)
+
+	accounts := data["CLIENTS"].([]interface{})
+	for i := 0; i < len(accounts); i++ {
+		item := accounts[i].(map[string]interface{})
+		account := new(Account)
+		account.Socket = *websocket.DefaultDialer
+		account.ID = item["ID"].(string)
+		account.Type = item["TYPE"].(string)
+		account.hmac = hmac.New(crypto.SHA256.New, []byte(item["ID"].(string)))
+
+		if client.Account == nil {
+			fmt.Println(account)
+			fmt.Println(client.Account)
+			client.Account = account
+			client.Account.Accounts = map[string]*Account{}
+		}
+
+		account.Accounts = client.Account.Accounts
+		account.Accounts[account.ID] = account
+
+		if account.Type == "MAIN" {
+			client.Account = account
+		}
+	}
 
 	return client, paths
 }
