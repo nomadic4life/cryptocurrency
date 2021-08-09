@@ -44,7 +44,10 @@ func CreateOrder(side string, orderQty, priceEp int64, append ...map[string]inte
 
 	if append != nil {
 		for key, value := range append[0] {
-			if key != "side" || key != "orderQty" || key != "priceEp" {
+			a := key
+			b := key
+			c := key
+			if a != "side" || b != "orderQty" || c != "priceEp" {
 				order[key] = value
 			}
 		}
