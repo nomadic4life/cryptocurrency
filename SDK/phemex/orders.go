@@ -1,6 +1,7 @@
 package phemex
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -44,10 +45,8 @@ func CreateOrder(side string, orderQty, priceEp int64, append ...map[string]inte
 
 	if append != nil {
 		for key, value := range append[0] {
-			a := key
-			b := key
-			c := key
-			if a != "side" || b != "orderQty" || c != "priceEp" {
+			if key != "side" && key != "orderQty" && key != "priceEp" {
+				fmt.Print(key)
 				order[key] = value
 			}
 		}
