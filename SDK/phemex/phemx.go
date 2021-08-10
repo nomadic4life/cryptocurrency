@@ -6,10 +6,13 @@ import (
 	"crypto/hmac"
 	_ "crypto/sha256"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"hash"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -62,7 +65,7 @@ type Account struct {
 	Type     string `json:"TYPE"` // ["main", "sub"]
 	ID       string `json:"ID"`
 	hmac     hash.Hash
-	Socket   websocket.Dialer
+	Socket   *websocket.Conn
 	Accounts map[string]*Account
 }
 
@@ -603,10 +606,6 @@ func setupClient() (*Client, *Paths) {
 		fmt.Println(err)
 	}
 
-	type Secret struct {
-		Key string `json:"SECRET"`
-	}
-
 	data := make(map[string]interface{})
 
 	json.Unmarshal(byteValue, &data)
@@ -616,29 +615,130 @@ func setupClient() (*Client, *Paths) {
 	client.HostHTTP = data["HOSTHTTP"].(string)
 	client.HostWSS = data["HOSTWSS"].(string)
 
+	var addr = flag.String("addr", "phemex.com", "phemex feed address")
+	flag.Parse()
+	log.SetFlags(0)
+	u := url.URL{Scheme: "wss", Host: *addr, Path: "ws"}
+
 	accounts := data["CLIENTS"].([]interface{})
 	for i := 0; i < len(accounts); i++ {
 		item := accounts[i].(map[string]interface{})
 		account := new(Account)
-		account.Socket = *websocket.DefaultDialer
 		account.ID = item["ID"].(string)
 		account.Type = item["TYPE"].(string)
-		account.hmac = hmac.New(crypto.SHA256.New, []byte(item["ID"].(string)))
+		account.hmac = hmac.New(crypto.SHA256.New, []byte(item["SECRET"].(string)))
 
 		if client.Account == nil {
-			fmt.Println(account)
-			fmt.Println(client.Account)
 			client.Account = account
 			client.Account.Accounts = map[string]*Account{}
 		}
 
 		account.Accounts = client.Account.Accounts
 		account.Accounts[account.ID] = account
+		account.Connect(u)
 
 		if account.Type == "MAIN" {
 			client.Account = account
 		}
+
 	}
 
 	return client, paths
+}
+
+func MainSub() {
+	client.Account.Auth().Subscribe("aop.subscribe", []interface{}{})
+}
+
+func (a *Account) Auth() *Account {
+
+	seconds := 120
+	time := int(time.Now().Unix())
+
+	expiry := time + seconds
+	byteMessage := []byte(fmt.Sprintf("%v%d", a.ID, expiry))
+
+	a.hmac.Write(byteMessage)
+	signature := fmt.Sprintf("%x", a.hmac.Sum(nil))
+
+	a.hmac.Reset()
+
+	message, err := json.Marshal(map[string]interface{}{
+		"method": "user.auth",
+		"params": []interface{}{
+			"API",
+			a.ID,
+			signature,
+			expiry},
+		"id": 1234})
+
+	if err != nil {
+		panic("yike")
+	}
+
+	done := make(chan struct{})
+	func() {
+		defer close(done)
+		err := a.Socket.WriteMessage(websocket.TextMessage, message)
+		if err != nil {
+			log.Println("write:", err)
+		}
+		_, message, err := a.Socket.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			return
+		}
+		log.Printf("recv: %s", message)
+	}()
+
+	return a
+}
+
+func Subscribe() {
+	client.Account.Subscribe("orderbook.subscribe", []interface{}{"BTCUSD"})
+}
+
+func (a *Account) Subscribe(method string, params []interface{}) {
+
+	defer a.Socket.Close()
+
+	message, err := json.Marshal(map[string]interface{}{
+		"id":     1234,
+		"method": method,
+		"params": params})
+
+	if err != nil {
+		panic("yike")
+	}
+
+	done := make(chan struct{})
+
+	func() {
+		defer close(done)
+		err := a.Socket.WriteMessage(websocket.TextMessage, message)
+
+		if err != nil {
+			log.Println("write:", err)
+			return
+		}
+
+		for {
+			_, message, err := a.Socket.ReadMessage()
+			if err != nil {
+				log.Println("read:", err)
+				return
+			}
+			log.Printf("recv: %s", message)
+		}
+	}()
+}
+
+func (a *Account) Connect(u url.URL) {
+
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		log.Fatal("dial:", err)
+	}
+
+	a.Socket = c
 }
