@@ -1,5 +1,61 @@
 package phemex
 
+type Position struct {
+	AccountID              int64   // int64
+	Symbol                 string  // string
+	Currency               string  // string
+	Side                   string  // string
+	PositionStatus         string  // string
+	CrossMargin            bool    // bool
+	LeverageEr             int64   // int64
+	Leverage               float64 // int64
+	InitMarginReqEr        int64   // int64
+	InitMarginReq          float64 // float64
+	MaintMarginReqEr       int64   // int64
+	MaintMarginReq         float64 // float64
+	RiskLimitEv            int64   // int64
+	RiskLimit              float64 // int64
+	Size                   int64   // int64
+	Value                  float64 // int64
+	ValueEv                int64   // int64
+	AvgEntryPriceEp        int64   // int64
+	AvgEntryPrice          float64 // int64
+	PosCostEv              int64   // int64
+	PosCost                float64 // int64
+	AssignedPosBalanceEv   int64   // int64
+	AssignedPosBalance     float64 // int64
+	BankruptCommEv         int64   // int64
+	BankruptComm           float64 // int64
+	BankruptPriceEp        int64   // int64
+	BankruptPrice          float64 // int64
+	PositionMarginEv       int64   // int64
+	PositionMargin         float64 // int64
+	LiquidationPriceEp     int64   // int64
+	LiquidationPrice       float64 // int64
+	DeleveragePercentileEr int64   // int64
+	DeleveragePercentile   int64   // int64
+	BuyValueToCostEr       int64   // int64
+	BuyValueToCost         float64 // float64
+	SellValueToCostEr      int64   // int64
+	SellValueToCost        float64 // float64
+	MarkPriceEp            int64   // int64
+	MarkPrice              float64 // float64
+	MarkValueEv            int64   // int64
+	MarkValue              float64
+	EstimatedOrdLossEv     int64 // int64
+	EstimatedOrdLoss       int64 // int64
+	UsedBalanceEv          int64 // int64
+	UsedBalance            int64 // int64
+	TakeProfitEp           int64 // int64
+	TakeProfit             float64
+	StopLossEp             int64 // int64
+	StopLoss               float64
+	RealisedPnlEv          int64 // int64
+	RealisedPnl            float64
+	CumRealisedPnlEv       int64 // int64
+	CumRealisedPnl         float64
+}
+
 type AccountData struct {
 	Account struct {
 		AccountId          int64
