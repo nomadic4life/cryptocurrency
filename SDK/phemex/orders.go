@@ -14,7 +14,7 @@ var DefaultOrder map[string]interface{} = map[string]interface{}{
 	"reduceOnly":     false,
 	"closeOnTrigger": false}
 
-func CreateOrder(side string, orderQty, priceEp int64, append ...map[string]interface{}) *Response {
+func (a *Account) CreateOrder(side string, orderQty, priceEp int64, append ...map[string]interface{}) *Response {
 
 	// DEFAULT KEY VALUES:
 	//	-> "symbol": 			"BTCUSD"
@@ -50,10 +50,10 @@ func CreateOrder(side string, orderQty, priceEp int64, append ...map[string]inte
 		}
 	}
 
-	return Send("POST", "/orders", nil, order)
+	return a.Send("POST", "/orders", nil, order)
 }
 
-func AmendOrder(id string, amend map[string]string) *Response {
+func (a *Account) AmendOrder(id string, amend map[string]string) *Response {
 
 	query := map[string]string{
 		"symbol":  "BTCUSD",
@@ -65,10 +65,10 @@ func AmendOrder(id string, amend map[string]string) *Response {
 		}
 	}
 
-	return Send("PUT", "/orders/replace", query, nil)
+	return a.Send("PUT", "/orders/replace", query, nil)
 }
 
-func CancelOrders(ids []string, symbol string) *Response {
+func (a *Account) CancelOrders(ids []string, symbol string) *Response {
 
 	query := map[string]string{
 		"symbol": "BTCUSD"}
@@ -90,10 +90,10 @@ func CancelOrders(ids []string, symbol string) *Response {
 		query["orderID"] = ids[0]
 	}
 
-	return Send("DELETE", path, query, nil)
+	return a.Send("DELETE", path, query, nil)
 }
 
-func GetOrders(id, symbol string) *Response {
+func (a *Account) GetOrders(id, symbol string) *Response {
 
 	path := "/orders/activeList"
 	query := map[string]string{
@@ -108,7 +108,7 @@ func GetOrders(id, symbol string) *Response {
 		query["orderID"] = id
 	}
 
-	return Send("GET", path, query, nil)
+	return a.Send("GET", path, query, nil)
 }
 
 // need to add some validation and sanitation for query and body keys

@@ -21,6 +21,13 @@ import (
 	"github.com/fasthttp/websocket"
 )
 
+var (
+	// WebsocketTimeout is an interval for sending ping/pong messages if WebsocketKeepalive is enabled
+	WebsocketTimeout = 5 * time.Second
+	// WebsocketKeepalive enables sending ping/pong messages to check the connection stability
+	WebsocketKeepalive = true
+)
+
 var client, paths = setupClient()
 
 const (
@@ -59,22 +66,51 @@ const (
 	BY_LAST_PRICE string = "ByLastPrice" // trigger by last price
 )
 
+var (
+	newline = []byte{'\n'}
+	space   = []byte{' '}
+)
+
 type Paths []string
 
 type Account struct {
-	Type     string `json:"TYPE"` // ["main", "sub"]
-	ID       string `json:"ID"`
-	hmac     hash.Hash
-	Socket   *websocket.Conn
-	Accounts map[string]*Account
+	Client        *Client
+	Type          string
+	ID            int64
+	API_KEY       string
+	hmac          hash.Hash
+	Subscriptions map[string]int
+	Accounts      map[int64]*Account
 }
 
 type Client struct {
-	conn       http.Client
-	HostHTTP   string `json:"HOSTHTTP"`
-	HostWSS    string `json:"HOSTWSS"`
-	SocketConn int
-	Account    *Account
+	conn     http.Client
+	HostHTTP string `json:"HOSTHTTP"`
+	HostWSS  string `json:"HOSTWSS"`
+	WSS      url.URL
+	ConnMap  map[int]int
+	Sockets  [5]*Socket
+	Account  *Account
+}
+
+type Socket struct {
+	Hub  *Hub
+	Conn *websocket.Conn
+	send chan []byte
+}
+
+type Hub struct {
+	// Registered Accounts.
+	Accounts map[*Account]bool
+
+	// Inbound messages from the Sockets.
+	response chan []byte
+
+	// Register requests from the Sockets or Accounts?.
+	register chan *Account
+
+	// Unregister requests from Sockets or Accounts?.
+	unregister chan *Account
 }
 
 type Request struct {
@@ -153,276 +189,6 @@ type Position struct {
 	CumRealisedPnl         float64
 }
 
-type AccountData struct {
-	Account struct {
-		AccountId          int64
-		Currency           string
-		AccountBalanceEv   int64
-		TotalUsedBalanceEv int64
-	}
-	Positions []Position
-}
-
-type ActiveList struct {
-	Orders []Order
-}
-
-type Order struct {
-	bizError       int64   // int64
-	orderID        string  // UUID string
-	clOrdID        string  // UUID string
-	symbol         string  // string
-	side           string  // string
-	actionTimeNs   int64   // int64
-	transactTimeNs int64   // int64
-	orderType      string  // string?
-	priceEp        int64   // int64
-	price          int64   // int64
-	orderQty       int64   // int64
-	displayQty     int64   // int64
-	timeInForce    string  // string?
-	reduceOnly     bool    // bool
-	stopPxEp       int64   // int64
-	closedPnlEv    int64   // int64
-	closedPnl      int64   // int64
-	closedSize     int64   // int64
-	cumQty         int64   // int64
-	cumValueEv     int64   // int64
-	cumValue       int64   // int64
-	leavesQty      int64   // int64
-	leavesValueEv  int64   // int64
-	leavesValue    float64 // float64
-	stopPx         int64   // int64
-	stopDirection  string  // string
-	ordStatus      string  // string
-
-	Currency     string
-	Action       string
-	TradeType    string
-	ExecQty      int64
-	ExectPriceEP int64
-	ExecValueEv  int64
-	FeeRateEr    int64
-	ExecFeeEv    int64
-	Ordtype      string
-	ExecStatus   string
-}
-
-type MarketData struct {
-	Err     string
-	Id      int64
-	Results struct {
-		Books []BookData
-	}
-	Depth     int64
-	Sequence  int64
-	Timestamp int64
-	Symbol    string
-	Type      string
-}
-
-type BookData struct {
-	Asks [][]int64
-	Bids [][]int64
-}
-
-type TradeData struct {
-	Err     string
-	Id      int64
-	Results struct {
-		Type     string
-		Sequence int64
-		Symbol   string
-		Trades   [][]interface{}
-	}
-}
-
-type TickerData struct {
-	Err     string
-	Id      int64
-	Results struct {
-		Open            int64
-		High            int64
-		Low             int64
-		Close           int64
-		IndexPrice      int64
-		MarkPrice       int64
-		OpenInterest    int64
-		FundingRate     int64
-		PredFundingRate int64
-		Symbol          string
-		Turnover        int64
-		Volume          int64
-		TimeStamp       int64
-	}
-}
-
-type Nomics struct {
-	Data []struct {
-		Id           string
-		Amount_Quote string
-		Price        string
-		Side         string
-		Timestamp    string
-		Type         string
-	}
-	MSG string
-}
-
-// ASSET API LIST
-type Users struct {
-	Code int64
-	MSG  string
-	Data struct {
-		Total int64
-		Rows  []struct {
-			UserId        string
-			Email         string
-			NickName      string
-			PasswordState int64
-			ClientCnt     int64
-			TOTP          int64
-			Logon         int64
-			ParentId      int64
-			ParentEmail   string
-			Status        int64
-			Wallet        struct {
-				TotalBalance    string
-				TotalBalanceEv  int64
-				AvailBalance    string
-				AvailBalanceEv  int64
-				FreezeBalance   string
-				FreezeBalanceEv int64
-				Currency        string
-				CurrencyCode    int64
-			}
-			UserMarginVo []struct {
-				Currency           string
-				AccountBalance     string
-				TotalUsedBalance   string
-				AccountBalanceEv   int64
-				TotalUsedBalanceEv int64
-				BonusBalanceEv     int64
-				BonusBalance       string
-			}
-		}
-	}
-}
-
-type Wallet struct {
-	Amount    int64
-	AmountEv  int64
-	ClientCnt int64
-	Currency  string
-}
-
-type ResponseWallet struct {
-	Code int64
-	MSG  string
-	Data string
-}
-
-type Margins struct {
-	BTCAmount   float64
-	BTCAmountEv int64
-	LinkKey     string
-	MoveOp      []int64
-	USDAmount   float64
-	USDAmountEv float64
-}
-
-type ResponseMargin struct {
-	Code int64
-	MSG  string
-	Data struct {
-		MoveOp           int64
-		FromCurrencyName string
-		ToCurrencyName   string
-		FromAmount       string
-		ToAmount         string
-		LinkKey          string
-		Status           int64
-	}
-}
-
-type ResponseWalletHistory struct {
-	Code int64
-	MSG  string
-	Data struct {
-		Total int64
-		Rows  []struct {
-			MoveOp           int64
-			FromCurrencyName string
-			ToCurrencyName   string
-			FromAmount       string
-			ToAmount         string
-			LinkKey          string
-			Status           int64
-			CreateTime       int64
-		}
-	}
-}
-
-type WithDraw struct {
-	Address  string
-	Amountev int64
-	Currency string
-}
-
-type ResonseWithDraw struct {
-	Code int64
-	MSG  string
-	Data struct {
-		Id          int64
-		Currency    string
-		Status      string
-		AmountEv    int64
-		FeeEv       int64
-		Address     string
-		TxHash      string
-		SubmitedAt  int64
-		Expiredtime int64
-	}
-}
-
-type ResponseConfirmWithDraw struct {
-	Code int64
-	MSG  string
-}
-
-type CancelWithdraw struct {
-	Id int64
-}
-
-type WithdrawAddress struct {
-	Address  string
-	Currency string
-	Remark   string
-}
-
-type ResponseConfirmAddress struct {
-	Code int64
-	MSG  string
-	Data int64
-}
-
-type Query struct {
-	currency, ordStatus, symbol, orderID, origClOrdID, clOrdID,
-	price, priceep, orderQty, stopPx, stopPxEp, takeProfit, takeProfitEP,
-	stopLoss, stopLossEp, pegOffsetValueEp, pegPriceType, untriggered,
-	leverage, leverageEr, riskLimit, riskLimitEv, posBalance, posBalanceEv,
-	start, end, offset, limit, tradeType, withCount, market, since, optCode, code string
-}
-
-type Body struct {
-	symbol, clOrdID, side,
-	priceEp, orderQty, ordType,
-	reduceOnly, timeInForce, takeProfitEp,
-	stopLossEp, actionBy, pegPriceType,
-	pegOffsetValueEp, stopPxEp, closeOnTrigger,
-	triggerType, address, amountEv, currency, remark string
-}
-
 func (r *Request) setPath(method, path string) {
 	r.Path = path
 	r.Method = method
@@ -476,7 +242,7 @@ func (r *Request) isPrivate() bool {
 	return true
 }
 
-func (r *Request) sign() {
+func (r *Request) sign(a *Account) {
 
 	if r.isPrivate() {
 		minute := 60
@@ -486,12 +252,12 @@ func (r *Request) sign() {
 
 		byteMessage := []byte(r.Path + r.Query + r.Expiry + string(r.Body))
 
-		client.Account.hmac.Write(byteMessage)
-		r.Signature = fmt.Sprintf("%x", client.Account.hmac.Sum(nil))
+		a.hmac.Write(byteMessage)
+		r.Signature = fmt.Sprintf("%x", a.hmac.Sum(nil))
 
-		client.Account.hmac.Reset()
+		a.hmac.Reset()
 
-		r.Req.Header.Add("x-phemex-access-token", client.Account.ID)
+		r.Req.Header.Add("x-phemex-access-token", a.API_KEY)
 		r.Req.Header.Add("x-phemex-request-expiry", r.Expiry)
 		r.Req.Header.Add("x-phemex-request-signature", r.Signature)
 	}
@@ -536,24 +302,20 @@ func JSON(res *Response) {
 	res.output = data
 }
 
-func Send(method, path string, query map[string]string, body map[string]interface{}) *Response {
+func (a *Account) Send(method, path string, query map[string]string, body map[string]interface{}) *Response {
 	request := new(Request)
 	response := new(Response)
 	request.setPath(method, path)
 	request.setQuery(query)
 	request.setBody(body)
 	request.setRequest()
-	request.sign()
+	request.sign(a)
 	request.send(response)
 
 	return response
 }
 
-func setupClient() (*Client, *Paths) {
-	// setup client
-	// set up paths
-	// set up websockets
-
+func setupPaths() *Paths {
 	paths := new(Paths)
 	*paths = append(*paths, "/orders") // POST 	 -> Body {symbol, clOrdID, side, priceEp, ordrQty, actionBy, pegPriceType, pegOffsetValueEp, pegPriceType
 	// 				  									  , reduceOnly, timeInforce, takeProfitEp, StopLossEp, stopPxEp, closeOnTrigger, triggertype}
@@ -594,6 +356,10 @@ func setupClient() (*Client, *Paths) {
 	*paths = append(*paths, "/exchange/public/nomics/trades") // GET	-> query {market, since}
 	*paths = append(*paths, "/exchange/public/products")      // GET
 
+	return paths
+}
+
+func readConfig() []byte {
 	jsonFile, err := os.Open("./config.json")
 	if err != nil {
 		fmt.Println(err)
@@ -606,139 +372,335 @@ func setupClient() (*Client, *Paths) {
 		fmt.Println(err)
 	}
 
+	return byteValue
+}
+
+func setupClient() (*Client, *Paths) {
+	paths := setupPaths()
+
 	data := make(map[string]interface{})
 
-	json.Unmarshal(byteValue, &data)
+	json.Unmarshal(readConfig(), &data)
+
+	addr := flag.String("addr", "phemex.com", "phemex feed address")
+	flag.Parse()
+	log.SetFlags(0)
 
 	client := new(Client)
 	client.conn = *http.DefaultClient
 	client.HostHTTP = data["HOSTHTTP"].(string)
 	client.HostWSS = data["HOSTWSS"].(string)
+	client.WSS = url.URL{Scheme: "wss", Host: *addr, Path: "ws"}
 
-	var addr = flag.String("addr", "phemex.com", "phemex feed address")
-	flag.Parse()
-	log.SetFlags(0)
-	u := url.URL{Scheme: "wss", Host: *addr, Path: "ws"}
+	client.ConnMap = make(map[int]int)
+	client.ConnMap[0] = 0
+	client.ConnMap[1] = 0
+	client.ConnMap[2] = 0
+	client.ConnMap[3] = 0
+	client.ConnMap[4] = 0
+
+	// client.Hub = new(Hub)
+	// client.Hub.broadcast = make(chan []byte)
+	// client.Hub.register = make(chan *Account)
+	// client.Hub.unregister = make(chan *Account)
+	// client.Hub.Accounts = make(map[*Account]bool)
 
 	accounts := data["CLIENTS"].([]interface{})
 	for i := 0; i < len(accounts); i++ {
 		item := accounts[i].(map[string]interface{})
 		account := new(Account)
-		account.ID = item["ID"].(string)
+		account.ID = int64(item["ID"].(float64))
+		account.API_KEY = item["API_KEY"].(string)
 		account.Type = item["TYPE"].(string)
 		account.hmac = hmac.New(crypto.SHA256.New, []byte(item["SECRET"].(string)))
 
 		if client.Account == nil {
 			client.Account = account
-			client.Account.Accounts = map[string]*Account{}
+			client.Account.Accounts = map[int64]*Account{}
 		}
 
 		account.Accounts = client.Account.Accounts
 		account.Accounts[account.ID] = account
-		account.Connect(u)
+		account.Client = client
 
 		if account.Type == "MAIN" {
 			client.Account = account
 		}
-
 	}
+
+	fmt.Print(client.Account.Accounts)
 
 	return client, paths
 }
 
-func MainSub() {
-	client.Account.Auth().Subscribe("aop.subscribe", []interface{}{})
+func GetAccounts() {
+	client.GetAccounts()
 }
 
-func (a *Account) Auth() *Account {
+func (c *Client) GetAccounts() {
 
-	seconds := 120
-	time := int(time.Now().Unix())
-
-	expiry := time + seconds
-	byteMessage := []byte(fmt.Sprintf("%v%d", a.ID, expiry))
-
-	a.hmac.Write(byteMessage)
-	signature := fmt.Sprintf("%x", a.hmac.Sum(nil))
-
-	a.hmac.Reset()
-
-	message, err := json.Marshal(map[string]interface{}{
-		"method": "user.auth",
-		"params": []interface{}{
-			"API",
-			a.ID,
-			signature,
-			expiry},
-		"id": 1234})
-
-	if err != nil {
-		panic("yike")
+	res := c.Account.Send("GET", "/phemex-user/users/children", nil, nil).HandleResponse(JSON)
+	users := res.output["data"].([]interface{})
+	for i := 0; i < len(users); i++ {
+		user := users[i]
+		fmt.Println(int64(user.(map[string]interface{})["userId"].(float64)))
 	}
-
-	done := make(chan struct{})
-	func() {
-		defer close(done)
-		err := a.Socket.WriteMessage(websocket.TextMessage, message)
-		if err != nil {
-			log.Println("write:", err)
-		}
-		_, message, err := a.Socket.ReadMessage()
-		if err != nil {
-			log.Println("read:", err)
-			return
-		}
-		log.Printf("recv: %s", message)
-	}()
-
-	return a
 }
 
-func Subscribe() {
-	client.Account.Subscribe("orderbook.subscribe", []interface{}{"BTCUSD"})
-}
+// func MainSub() {
+// 	// client.Account.Auth().Subscribe("aop.subscribe", []interface{}{})
+// 	fmt.Println("hello")
+// }
 
-func (a *Account) Subscribe(method string, params []interface{}) {
+// func Subscribe() {
+// 	client.Account.Subscribe("orderbook.subscribe", []interface{}{"BTCUSD"})
+// 	// client.Account.Subscribe("trade.subscribe", []interface{}{"BTCUSD"})
+// }
 
-	defer a.Socket.Close()
+// // plays pingpong to keep socket connection alive
+// func keepAlive(c *websocket.Conn, id int64, done chan struct{}) {
+// 	rand.Seed(time.Now().UnixNano())
+// 	ticker := time.NewTicker(WebsocketTimeout)
 
-	message, err := json.Marshal(map[string]interface{}{
-		"id":     1234,
-		"method": method,
-		"params": params})
+// 	lastResponse := time.Now()
+// 	c.SetPongHandler(func(msg string) error {
+// 		lastResponse = time.Now()
+// 		return nil
+// 	})
 
-	if err != nil {
-		panic("yike")
-	}
+// 	go func() {
+// 		defer func() {
+// 			ticker.Stop()
+// 		}()
+// 		for {
+// 			select {
+// 			case <-done:
+// 				return
+// 			case <-ticker.C:
+// 				id++
+// 				p, _ := json.Marshal(map[string]interface{}{
+// 					"id":     id,
+// 					"method": "server.ping",
+// 					"params": []string{},
+// 				})
+// 				c.WriteControl(websocket.PingMessage, p, time.Time{})
 
-	done := make(chan struct{})
+// 				// as suggested https://github.com/phemex/phemex-api-docs/blob/master/Public-API-en.md#1-session-management
+// 				if time.Since(lastResponse) > 3*WebsocketTimeout {
+// 					// errHandler(fmt.Errorf("last pong exceeded the timeout: %[1]v (%[2]v)", time.Since(lastResponse), id))
+// 					fmt.Printf("last pong exceeded the timeout: %[1]v (%[2]v)", time.Since(lastResponse), id)
+// 					return
+// 				}
+// 			}
+// 		}
+// 	}()
+// }
 
-	func() {
-		defer close(done)
-		err := a.Socket.WriteMessage(websocket.TextMessage, message)
+// func (h *Hub) run() {
 
-		if err != nil {
-			log.Println("write:", err)
-			return
-		}
+// 	go func() {
+// 		for {
+// 			select {
+// 			case account := <-h.register:
+// 				h.Accounts[account] = true
+// 			case account := <-h.unregister:
+// 				if _, ok := h.Accounts[account]; ok {
+// 					delete(h.Accounts, account)
+// 					close(s.send)
+// 				}
+// 			// comes from socket connection
+// 			case message := <-h.response:
+// 				// send to main or one of the sub accounts
+// 				// extract the id or account id
 
-		for {
-			_, message, err := a.Socket.ReadMessage()
-			if err != nil {
-				log.Println("read:", err)
-				return
-			}
-			log.Printf("recv: %s", message)
-		}
-	}()
-}
+// 				// send to the account so the account can handle data
+// 				select {
+// 				case s.send <- message:
+// 				default:
+// 					close(s.send)
+// 					delete(h.Accounts, account)
+// 				}
 
-func (a *Account) Connect(u url.URL) {
+// 			}
+// 		}
+// 	}()
+// }
 
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		log.Fatal("dial:", err)
-	}
+// func Message(msg []byte) {
+// 	if strings.Contains(string(msg), "{\"error\"") {
 
-	a.Socket = c
-}
+// 	} else if strings.Contains(string(msg), "{\"book\"") {
+
+// 	} else if strings.Contains(string(msg), "{\"trades\"") {
+
+// 	} else if strings.Contains(string(msg), "{\"kline\"") {
+
+// 	} else if strings.Contains(string(msg), "{\"accounts\"") {
+
+// 	} else if strings.Contains(string(msg), "{\"market24h\"") {
+
+// 	} else if strings.Contains(string(msg), "{\"id\"") {
+
+// 	} else if strings.Contains(string(msg), "{\"result\"") {
+
+// 	} else if strings.Contains(string(msg), "{\"status\"") {
+
+// 	}
+
+// }
+
+// // Auth -> allows account to be authorized before subsribing to a channel
+// func (a *Account) Auth() *Account {
+
+// 	_, socket := a.Client.Subscribe()
+// 	if socket == nil {
+// 		fmt.Println("Max Connections, no more connections can be made.")
+// 		return nil
+// 	}
+
+// 	seconds := 120
+// 	time := int(time.Now().Unix())
+
+// 	expiry := time + seconds
+// 	byteMessage := []byte(fmt.Sprintf("%v%d", a.ID, expiry))
+
+// 	a.hmac.Write(byteMessage)
+// 	signature := fmt.Sprintf("%x", a.hmac.Sum(nil))
+
+// 	a.hmac.Reset()
+
+// 	message, err := json.Marshal(map[string]interface{}{
+// 		"method": "user.auth",
+// 		"params": []interface{}{
+// 			"API",
+// 			a.ID,
+// 			signature,
+// 			expiry},
+// 		"id": 1234})
+
+// 	if err != nil {
+// 		panic("yike")
+// 	}
+
+// 	func() {
+// 		err := socket.WriteMessage(websocket.TextMessage, message)
+// 		if err != nil {
+// 			log.Println("write:", err)
+// 		}
+// 	}()
+
+// 	return a
+// }
+
+// // Subscribe -> allows account to make a new subscribtion channel if not at max capacity
+// func (a *Account) Subscribe(method string, params []interface{}) *Account {
+
+// 	index, socket := a.Client.Subscribe()
+// 	if socket == nil {
+// 		fmt.Println("Max Connections, no more connections can be made.")
+// 		return a
+// 	}
+
+// 	message, err := json.Marshal(map[string]interface{}{
+// 		"id":     1234,
+// 		"method": method,
+// 		"params": params})
+
+// 	if err != nil {
+// 		panic("yike")
+// 	}
+
+// 	func() {
+// 		err := socket.WriteMessage(websocket.TextMessage, message)
+// 		// if succesful connection update connection
+// 		client.ConnMap[index] += 1
+
+// 		if err != nil {
+// 			log.Println("write:", err)
+// 		}
+// 	}()
+
+// 	return a
+// }
+
+// // Subscribe -> returns an available socket connection so Account can make a subscription channel or returns none if  at max capacity.
+// func (Conn *Client) Subscribe() (int, *websocket.Conn) {
+// 	// fmt.Println(Conn)
+// 	// fmt.Println(Conn.ConnMap)
+// 	for key, value := range Conn.ConnMap {
+// 		if value < 20 && value > 0 {
+// 			fmt.Println(key, Conn.Sockets[key])
+// 			return key, Conn.Sockets[key]
+// 		}
+// 	}
+
+// 	return Conn.Connect()
+// }
+
+// // Connect -> makes a new socket connection or none if at max capacity
+// func (Conn *Client) Connect() (int, *websocket.Conn) {
+
+// 	for i := 0; i < len(Conn.Sockets); i++ {
+// 		if Conn.Sockets[i] == nil {
+
+// 			done := make(chan struct{})
+// 			socket, _, err := websocket.DefaultDialer.Dial(Conn.WSS.String(), nil)
+// 			if err != nil {
+// 				log.Fatal("dial:", err)
+// 				return -1, nil
+// 			}
+
+// 			if WebsocketKeepalive {
+// 				// keepAlive(a.Socket, *s.id, done, errHandler)
+// 				keepAlive(socket, 1, done)
+// 			}
+
+// 			go func() {
+
+// 				defer func() {
+// 					// Conn.Hub.unregister <-
+// 					socket.Close() // not sure if this goes here? don't fully completly understand this concept
+// 					close(done)
+// 				}()
+
+// 				for {
+// 					_, message, err := socket.ReadMessage()
+// 					if err != nil {
+// 						if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+// 							log.Printf("error: %v", err)
+// 						} else {
+// 							log.Println("read:", err)
+// 						}
+// 						return
+// 					}
+
+// 					// log.Printf("recv: %s", message)
+// 					// message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+// 					// parse message here
+// 					// send message to correct account by account id or to main by default
+
+// 					if strings.Contains(string(message), "{\"accounts\"") {
+// 						// extract id
+// 						// find account from id
+// 						// send message to acount
+// 					} else if strings.Contains(string(message), "{\"results\"") {
+// 						// if success extract id
+// 						// update socket counter
+// 						// update account reference to socket and subscribtion to refer for unsubing
+// 					} else {
+// 						// send to main
+// 					}
+// 				}
+// 			}()
+
+// 			Conn.Sockets[i] = socket
+
+// 			return i, socket
+// 		}
+// 	}
+
+// 	return -1, nil
+// }
+
+// websocket to the hub
+// hub to the account
