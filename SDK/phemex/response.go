@@ -37,3 +37,32 @@ func JSON(res *Response) {
 
 	res.output = data
 }
+
+func (a *Account) Send(method, path string, query map[string]string, body map[string]interface{}) *Response {
+	request := new(Request)
+	response := new(Response)
+	request.setPath(method, path)
+	request.setQuery(query)
+	request.setBody(body)
+	request.setRequest()
+	request.sign(a)
+	request.send(response)
+
+	return response
+}
+
+func parseMessage(message []byte) *map[string]interface{} {
+	var msg map[string]interface{}
+	err := json.Unmarshal(message, &msg)
+	if err != nil {
+		panic("NOO")
+	}
+
+	// userID := int64(msg["accounts"].([]interface{})[0].(map[string]interface{})["userID"].(float64))
+
+	return &msg
+}
+
+func hasAccounts() bool {
+	return true
+}

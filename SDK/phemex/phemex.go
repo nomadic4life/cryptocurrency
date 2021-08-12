@@ -4,8 +4,6 @@ import (
 	_ "crypto/sha256"
 	"fmt"
 	"time"
-
-	"github.com/fasthttp/websocket"
 )
 
 var (
@@ -57,39 +55,6 @@ var (
 	newline = []byte{'\n'}
 	space   = []byte{' '}
 )
-
-type Socket struct {
-	Hub  *Hub
-	Conn *websocket.Conn
-	send chan []byte
-}
-
-type Hub struct {
-	// Registered Accounts.
-	Accounts map[*Account]bool
-
-	// Inbound messages from the Sockets.
-	response chan []byte
-
-	// Register requests from the Sockets or Accounts?.
-	register chan *Account
-
-	// Unregister requests from Sockets or Accounts?.
-	unregister chan *Account
-}
-
-func (a *Account) Send(method, path string, query map[string]string, body map[string]interface{}) *Response {
-	request := new(Request)
-	response := new(Response)
-	request.setPath(method, path)
-	request.setQuery(query)
-	request.setBody(body)
-	request.setRequest()
-	request.sign(a)
-	request.send(response)
-
-	return response
-}
 
 func GetAccounts() {
 	client.GetAccounts()

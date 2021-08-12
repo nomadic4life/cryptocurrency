@@ -1,6 +1,7 @@
 package phemex
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +11,12 @@ import (
 
 	"github.com/fasthttp/websocket"
 )
+
+type Socket struct {
+	Client *Client
+	Conn   *websocket.Conn
+	send   chan []byte
+}
 
 func MainSub() {
 	// client.Account.Auth().Subscribe("aop.subscribe", []interface{}{})
@@ -22,7 +29,7 @@ func Subscribe() {
 }
 
 // plays pingpong to keep socket connection alive
-func keepAlive(c *websocket.Conn, id int64, done chan struct{}) {
+func keepAlive(c *websocket.Conn, id int, done chan struct{}) {
 	rand.Seed(time.Now().UnixNano())
 	ticker := time.NewTicker(WebsocketTimeout)
 
@@ -55,36 +62,6 @@ func keepAlive(c *websocket.Conn, id int64, done chan struct{}) {
 					fmt.Printf("last pong exceeded the timeout: %[1]v (%[2]v)", time.Since(lastResponse), id)
 					return
 				}
-			}
-		}
-	}()
-}
-
-func (h *Hub) run() {
-
-	go func() {
-		for {
-			select {
-			case account := <-h.register:
-				h.Accounts[account] = true
-			case account := <-h.unregister:
-				if _, ok := h.Accounts[account]; ok {
-					delete(h.Accounts, account)
-					close(s.send)
-				}
-			// comes from socket connection
-			case message := <-h.response:
-				// send to main or one of the sub accounts
-				// extract the id or account id
-
-				// send to the account so the account can handle data
-				select {
-				case s.send <- message:
-				default:
-					close(s.send)
-					delete(h.Accounts, account)
-				}
-
 			}
 		}
 	}()
@@ -147,7 +124,7 @@ func (a *Account) Auth() *Account {
 	}
 
 	func() {
-		err := socket.WriteMessage(websocket.TextMessage, message)
+		err := socket.Conn.WriteMessage(websocket.TextMessage, message)
 		if err != nil {
 			log.Println("write:", err)
 		}
@@ -166,7 +143,7 @@ func (a *Account) Subscribe(method string, params []interface{}) *Account {
 	}
 
 	message, err := json.Marshal(map[string]interface{}{
-		"id":     1234,
+		"id":     a.ID,
 		"method": method,
 		"params": params})
 
@@ -175,12 +152,18 @@ func (a *Account) Subscribe(method string, params []interface{}) *Account {
 	}
 
 	func() {
-		err := socket.WriteMessage(websocket.TextMessage, message)
-		// if succesful connection update connection
-		client.ConnMap[index] += 1
-
+		err := socket.Conn.WriteMessage(websocket.TextMessage, message)
 		if err != nil {
 			log.Println("write:", err)
+		}
+
+		message := <-socket.send
+
+		data := *parseMessage(message)
+
+		if data["result"].(map[string]interface{})["status"].(string) == "success" {
+			a.Subscriptions[method] = index
+			client.ConnMap[index] += 1
 		}
 	}()
 
@@ -188,12 +171,9 @@ func (a *Account) Subscribe(method string, params []interface{}) *Account {
 }
 
 // Subscribe -> returns an available socket connection so Account can make a subscription channel or returns none if  at max capacity.
-func (Conn *Client) Subscribe() (int, *websocket.Conn) {
-	// fmt.Println(Conn)
-	// fmt.Println(Conn.ConnMap)
+func (Conn *Client) Subscribe() (int, *Socket) {
 	for key, value := range Conn.ConnMap {
 		if value < 20 && value > 0 {
-			fmt.Println(key, Conn.Sockets[key])
 			return key, Conn.Sockets[key]
 		}
 	}
@@ -202,33 +182,37 @@ func (Conn *Client) Subscribe() (int, *websocket.Conn) {
 }
 
 // Connect -> makes a new socket connection or none if at max capacity
-func (Conn *Client) Connect() (int, *websocket.Conn) {
+func (Conn *Client) Connect() (int, *Socket) {
 
 	for i := 0; i < len(Conn.Sockets); i++ {
 		if Conn.Sockets[i] == nil {
 
 			done := make(chan struct{})
-			socket, _, err := websocket.DefaultDialer.Dial(Conn.WSS.String(), nil)
+			connection, _, err := websocket.DefaultDialer.Dial(Conn.WSS.String(), nil)
 			if err != nil {
 				log.Fatal("dial:", err)
 				return -1, nil
 			}
 
+			socket := new(Socket)
+			socket.Conn = connection
+			socket.Client = client
+			Conn.Sockets[i] = socket
+
 			if WebsocketKeepalive {
 				// keepAlive(a.Socket, *s.id, done, errHandler)
-				keepAlive(socket, 1, done)
+				keepAlive(socket.Conn, i, done)
 			}
 
 			go func() {
 
 				defer func() {
-					// Conn.Hub.unregister <-
-					socket.Close() // not sure if this goes here? don't fully completly understand this concept
 					close(done)
+					socket.Conn.Close()
 				}()
 
 				for {
-					_, message, err := socket.ReadMessage()
+					_, message, err := socket.Conn.ReadMessage()
 					if err != nil {
 						if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 							log.Printf("error: %v", err)
@@ -238,26 +222,21 @@ func (Conn *Client) Connect() (int, *websocket.Conn) {
 						return
 					}
 
-					// log.Printf("recv: %s", message)
-					// message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-					// parse message here
-					// send message to correct account by account id or to main by default
+					message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
 
 					if strings.Contains(string(message), "{\"accounts\"") {
-						// extract id
-						// find account from id
-						// send message to acount
+						data := *parseMessage(message)
+						userID := int64(data["accounts"].([]interface{})[0].(map[string]interface{})["userID"].(float64))
+						account := Conn.Account.Accounts[userID]
+						account.receiver <- message
 					} else if strings.Contains(string(message), "{\"results\"") {
-						// if success extract id
-						// update socket counter
-						// update account reference to socket and subscribtion to refer for unsubing
+						socket.send <- message
+
 					} else {
-						// send to main
+						Conn.Account.receiver <- message
 					}
 				}
 			}()
-
-			Conn.Sockets[i] = socket
 
 			return i, socket
 		}

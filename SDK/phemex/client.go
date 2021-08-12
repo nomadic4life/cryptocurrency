@@ -24,6 +24,7 @@ type Account struct {
 	hmac          hash.Hash
 	Subscriptions map[string]int
 	Accounts      map[int64]*Account
+	receiver      chan []byte
 }
 
 type Client struct {
@@ -149,7 +150,9 @@ func setupClient() (*Client, *Paths) {
 		}
 	}
 
-	fmt.Print(client.Account.Accounts)
-
 	return client, paths
+}
+
+func (a *Account) Listener() {
+
 }
