@@ -51,7 +51,7 @@ func (a *Account) Send(method, path string, query map[string]string, body map[st
 	return response
 }
 
-func parseMessage(message []byte) *map[string]interface{} {
+func parseMessage(message []byte) interface{} {
 	var msg map[string]interface{}
 	err := json.Unmarshal(message, &msg)
 	if err != nil {
@@ -60,7 +60,7 @@ func parseMessage(message []byte) *map[string]interface{} {
 
 	// userID := int64(msg["accounts"].([]interface{})[0].(map[string]interface{})["userID"].(float64))
 
-	return &msg
+	return msg
 }
 
 func hasAccounts() bool {

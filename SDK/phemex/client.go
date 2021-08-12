@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
+	"strings"
 )
 
 type Paths []string
@@ -121,12 +123,6 @@ func setupClient() (*Client, *Paths) {
 	client.ConnMap[3] = 0
 	client.ConnMap[4] = 0
 
-	// client.Hub = new(Hub)
-	// client.Hub.broadcast = make(chan []byte)
-	// client.Hub.register = make(chan *Account)
-	// client.Hub.unregister = make(chan *Account)
-	// client.Hub.Accounts = make(map[*Account]bool)
-
 	accounts := data["CLIENTS"].([]interface{})
 	for i := 0; i < len(accounts); i++ {
 		item := accounts[i].(map[string]interface{})
@@ -135,6 +131,7 @@ func setupClient() (*Client, *Paths) {
 		account.API_KEY = item["API_KEY"].(string)
 		account.Type = item["TYPE"].(string)
 		account.hmac = hmac.New(crypto.SHA256.New, []byte(item["SECRET"].(string)))
+		account.Subscriptions = make(map[string]int)
 
 		if client.Account == nil {
 			client.Account = account
@@ -146,7 +143,11 @@ func setupClient() (*Client, *Paths) {
 		account.Client = client
 
 		if account.Type == "MAIN" {
+			// considering that anything has to do with public info is in a public
+			// account and that the public account is at the top of the tree?
 			client.Account = account
+			// main listener. not sure if I should start here. but I am.
+			account.Listener()
 		}
 	}
 
@@ -154,5 +155,100 @@ func setupClient() (*Client, *Paths) {
 }
 
 func (a *Account) Listener() {
+	if a.receiver != nil {
+		return
+	}
 
+	a.receiver = make(chan []byte, 100)
+
+	go func() {
+		for {
+			message := <-a.receiver
+			fmt.Println("\n from account listener: \n", a.ID, string(message))
+			// need a message handler
+			// handler can be run in a go routine
+			// many will routines will be spend up to
+			// handle many incoming messages
+			// to prevent any blocking
+			// implement a counter to maintain order
+			// of an incoming message.
+			// need a channel to kill listener and break from loop
+			// and to close all account channels.
+		}
+	}()
+}
+
+func (Conn *Client) activeAccount(message []byte) *Account {
+	data := parseMessage(message)
+	for {
+		switch v := data.(type) {
+		case map[string]interface{}:
+			if val, ok := v["position_info"]; ok {
+				data = val
+			} else if val, ok := v["accounts"]; ok {
+				data = val
+			} else if val, ok := v["userID"]; ok {
+				data = val
+			}
+
+		case []interface{}:
+			data = v[0]
+
+		case string:
+			userID, err := strconv.Atoi(v)
+			if err != nil {
+				fmt.Println("error")
+				return nil
+			}
+			return Conn.Account.Accounts[int64(userID)]
+
+		case float64:
+			userID := v
+			return Conn.Account.Accounts[int64(userID)]
+		}
+	}
+}
+
+func result(message []byte) string {
+	data := parseMessage(message)
+
+	for {
+		switch v := data.(type) {
+
+		case map[string]interface{}:
+			if val, ok := v["result"]; ok {
+				data = val
+			} else if val, ok := v["status"]; ok {
+				data = val
+			}
+
+		case string:
+			return v
+		default:
+			return "failure"
+		}
+	}
+}
+
+// not relevent function yet.
+func Message(msg []byte) {
+	if strings.Contains(string(msg), "{\"error\"") {
+
+	} else if strings.Contains(string(msg), "{\"book\"") {
+
+	} else if strings.Contains(string(msg), "{\"trades\"") {
+
+	} else if strings.Contains(string(msg), "{\"kline\"") {
+
+	} else if strings.Contains(string(msg), "{\"accounts\"") {
+
+	} else if strings.Contains(string(msg), "{\"market24h\"") {
+
+	} else if strings.Contains(string(msg), "{\"id\"") {
+
+	} else if strings.Contains(string(msg), "{\"result\"") {
+
+	} else if strings.Contains(string(msg), "{\"status\"") {
+
+	}
 }

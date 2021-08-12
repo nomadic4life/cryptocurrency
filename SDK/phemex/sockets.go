@@ -1,7 +1,6 @@
 package phemex
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,19 +12,30 @@ import (
 )
 
 type Socket struct {
-	Client *Client
+	Client *Client // is this relevent?
 	Conn   *websocket.Conn
-	send   chan []byte
-}
-
-func MainSub() {
-	// client.Account.Auth().Subscribe("aop.subscribe", []interface{}{})
-	fmt.Println("hello")
+	send   chan []byte // subscriber channel
 }
 
 func Subscribe() {
-	client.Account.Subscribe("orderbook.subscribe", []interface{}{"BTCUSD"})
+	// client.Account.Accounts[826079].Auth().Subscribe("aop.subscribe", []interface{}{}, true)
+	// client.Account.Accounts[976380].Auth().Subscribe("aop.subscribe", []interface{}{}, true)
+	// client.Account.Accounts[1929977].Auth().Subscribe("aop.subscribe", []interface{}{}, true)
+
+	// client.Account.Accounts[826079].Subscribe("orderbook.subscribe", []interface{}{"BTCUSD"}, false)
+	// client.Account.Accounts[976380].Subscribe("trade.subscribe", []interface{}{"BTCUSD"}, false)
+	// client.Account.Accounts[1929977].Subscribe("market24h.subscribe", []interface{}{}, false)
+
+	// client.Account.Accounts[826079].Subscribe("trade.subscribe", []interface{}{"BTCUSD"}, false)
+	// client.Account.Accounts[826079].Subscribe("market24h.subscribe", []interface{}{}, false)
+
+	// client.Account.Auth().Subscribe("orderbook.subscribe", []interface{}{"BTCUSD"})
 	// client.Account.Subscribe("trade.subscribe", []interface{}{"BTCUSD"})
+	// for key, value := range client.Account.Accounts {
+	// 	fmt.Println(key)
+	// 	value.Auth().Subscribe("aop.subscribe", []interface{}{}, true)
+	// }
+	client.Account.Auth().Subscribe("aop.subscribe", []interface{}{}, true)
 }
 
 // plays pingpong to keep socket connection alive
@@ -67,33 +77,10 @@ func keepAlive(c *websocket.Conn, id int, done chan struct{}) {
 	}()
 }
 
-func Message(msg []byte) {
-	if strings.Contains(string(msg), "{\"error\"") {
-
-	} else if strings.Contains(string(msg), "{\"book\"") {
-
-	} else if strings.Contains(string(msg), "{\"trades\"") {
-
-	} else if strings.Contains(string(msg), "{\"kline\"") {
-
-	} else if strings.Contains(string(msg), "{\"accounts\"") {
-
-	} else if strings.Contains(string(msg), "{\"market24h\"") {
-
-	} else if strings.Contains(string(msg), "{\"id\"") {
-
-	} else if strings.Contains(string(msg), "{\"result\"") {
-
-	} else if strings.Contains(string(msg), "{\"status\"") {
-
-	}
-
-}
-
 // Auth -> allows account to be authorized before subsribing to a channel
 func (a *Account) Auth() *Account {
-
-	_, socket := a.Client.Subscribe()
+	fmt.Println("client", a)
+	index, socket := a.Client.Subscribe()
 	if socket == nil {
 		fmt.Println("Max Connections, no more connections can be made.")
 		return nil
@@ -103,7 +90,7 @@ func (a *Account) Auth() *Account {
 	time := int(time.Now().Unix())
 
 	expiry := time + seconds
-	byteMessage := []byte(fmt.Sprintf("%v%d", a.ID, expiry))
+	byteMessage := []byte(fmt.Sprintf("%s%v", a.API_KEY, expiry))
 
 	a.hmac.Write(byteMessage)
 	signature := fmt.Sprintf("%x", a.hmac.Sum(nil))
@@ -114,33 +101,49 @@ func (a *Account) Auth() *Account {
 		"method": "user.auth",
 		"params": []interface{}{
 			"API",
-			a.ID,
+			a.API_KEY,
 			signature,
 			expiry},
-		"id": 1234})
+		"id": a.ID})
+	// no idea what to do with id prop
 
 	if err != nil {
 		panic("yike")
 	}
 
-	func() {
+	return func() *Account {
 		err := socket.Conn.WriteMessage(websocket.TextMessage, message)
 		if err != nil {
 			log.Println("write:", err)
 		}
-	}()
 
-	return a
+		// blocking -> waiting to receive confirmation of Authorization
+		message := <-socket.send
+
+		// error -> panic: interface conversion: interface {} is nil, not map[string]interface {}
+		if result(message) == "success" {
+			client.ConnMap[index] += 1
+			// instead of doing counter, should pass the index to the subscriber
+			// and subscriber passes the index into the client subscribe and get
+			// socket that way. by passing the check loop.
+			// need to implement better error handeling.
+			return a
+		}
+
+		return a
+	}()
 }
 
 // Subscribe -> allows account to make a new subscribtion channel if not at max capacity
-func (a *Account) Subscribe(method string, params []interface{}) *Account {
+func (a *Account) Subscribe(method string, params []interface{}, auth bool) *Account {
 
 	index, socket := a.Client.Subscribe()
 	if socket == nil {
 		fmt.Println("Max Connections, no more connections can be made.")
 		return a
 	}
+
+	a.Listener()
 
 	message, err := json.Marshal(map[string]interface{}{
 		"id":     a.ID,
@@ -157,13 +160,19 @@ func (a *Account) Subscribe(method string, params []interface{}) *Account {
 			log.Println("write:", err)
 		}
 
+		fmt.Println("there")
+
+		// blocking -> waiting to receive confirmation of subscription
 		message := <-socket.send
 
-		data := *parseMessage(message)
-
-		if data["result"].(map[string]interface{})["status"].(string) == "success" {
+		if result(message) == "success" {
+			fmt.Println("Made Sub: ->  ", string(message))
 			a.Subscriptions[method] = index
-			client.ConnMap[index] += 1
+			if auth != true {
+				client.ConnMap[index] += 1
+			}
+		} else {
+			fmt.Println("Unable to make Sub: ->  ", string(message))
 		}
 	}()
 
@@ -197,6 +206,7 @@ func (Conn *Client) Connect() (int, *Socket) {
 			socket := new(Socket)
 			socket.Conn = connection
 			socket.Client = client
+			socket.send = make(chan []byte)
 			Conn.Sockets[i] = socket
 
 			if WebsocketKeepalive {
@@ -222,17 +232,20 @@ func (Conn *Client) Connect() (int, *Socket) {
 						return
 					}
 
-					message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+					// message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
 
-					if strings.Contains(string(message), "{\"accounts\"") {
-						data := *parseMessage(message)
-						userID := int64(data["accounts"].([]interface{})[0].(map[string]interface{})["userID"].(float64))
-						account := Conn.Account.Accounts[userID]
-						account.receiver <- message
-					} else if strings.Contains(string(message), "{\"results\"") {
+					// need some error handling if message contains an error
+					if strings.Contains(string(message), "\"result\"") {
 						socket.send <- message
 
+					} else if strings.Contains(string(message), "\"accounts\"") || strings.Contains(string(message), "\"userID\"") {
+						// probably send to a pool worker routine and buffer channel
+						// so this method doesn't cause any blocking
+						account := Conn.activeAccount(message)
+						account.receiver <- message
+
 					} else {
+						fmt.Println("General:")
 						Conn.Account.receiver <- message
 					}
 				}
@@ -245,5 +258,73 @@ func (Conn *Client) Connect() (int, *Socket) {
 	return -1, nil
 }
 
-// websocket to the hub
-// hub to the account
+// // The message types are defined in RFC 6455, section 11.8.
+// const (
+// 	// TextMessage denotes a text data message. The text message payload is
+// 	// interpreted as UTF-8 encoded text data.
+// 	TextMessage = 1
+
+// 	// BinaryMessage denotes a binary data message.
+// 	BinaryMessage = 2
+
+// 	// CloseMessage denotes a close control message. The optional message
+// 	// payload contains a numeric code and text. Use the FormatCloseMessage
+// 	// function to format a close message payload.
+// 	CloseMessage = 8
+
+// 	// PingMessage denotes a ping control message. The optional message payload
+// 	// is UTF-8 encoded text.
+// 	PingMessage = 9
+
+// 	// PongMessage denotes a pong control message. The optional message payload
+// 	// is UTF-8 encoded text.
+// 	PongMessage = 10
+// )
+
+// Client makes a socket connection
+//	-> listen for any incoming responses in a go Routine
+//	-> go routine routes the incoming message based on
+//	->	-> public general message
+//	-> 	-> private account message (aop.subscribe -> only one auth connection per socket)
+//	-> 	-> subscribing confirmation message base from result == success
+
+// Client.Subscribe
+// 	-> returns a socket that is available
+// 	-> or creates and returns a new socekt
+// 	-> or returns nil if at max capacity
+
+// Account.Subscribe
+//	-> connects to an available socket that subscribes to any subscription channel
+//	-> generates a listener for account if one is not currently running
+//	-> waits for a response and then checks if successful connection or not
+//	-> if succesful updates connection map and account subscription map.
+//	-> then returns
+
+// Account.Auth
+//	-> connects to an available socket that subscribes to any subscription channel
+//	-> generates a signature and expirey
+//	-> sends message
+//	-> waits for response and checks if auth was succesful
+//	-> if succesfuly updates connnection map
+//	-> returns
+
+// NOTES:
+// only one auth connection can be made per a socekt connection
+// if multiple auth connections were made only the last will be connected.
+// overwritting any previous auth connection.
+// Need to implement some type of check to either prevent any new auth connection
+// or unsub first updating local changes and then resub with new auth.
+// subbing to "aop.subscribe" streams data if (active order?) or position.
+// Need to implement reconnection if not receiving any pong messages.
+// Need a better way of initiating main listener.
+// Need to create public account and listener.
+// Need to spin up more go routines when receiving massive amount of messages in a short given time.
+// Can create a writter go routine for subbing.
+// Right now subbing is a blocking action. which prevents the socket writter being used concurrently.
+// Can also implment subbing async with channels to prevent socket writter being used concurrently.
+// Not sure which methode will be best. but will stick with blocking method for now.
+// When authorizing maybe send bool with a channel and remove the udpate state
+// from auth and keep only in subbing. will be cleaner and state is only updated in one location.
+// listener needs a handler passed into it so it can pass off messages to be handled in anyway fit.
+// Thinking about revising the keepAlive function that I took from another repo,
+// so I can fully understand how it works. and make improvements on it.
