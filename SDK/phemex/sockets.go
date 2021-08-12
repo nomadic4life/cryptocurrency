@@ -328,3 +328,6 @@ func (Conn *Client) Connect() (int, *Socket) {
 // listener needs a handler passed into it so it can pass off messages to be handled in anyway fit.
 // Thinking about revising the keepAlive function that I took from another repo,
 // so I can fully understand how it works. and make improvements on it.
+// need a way to close channels if listener is closed
+// need to add some timing feature to dynamically adjust to subing and unsubing in a given time,
+// for updating locally.
