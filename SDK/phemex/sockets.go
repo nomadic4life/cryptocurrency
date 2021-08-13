@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,25 +18,11 @@ type Socket struct {
 	send   chan []byte // subscriber channel
 }
 
-func Subscribe() {
-	// client.Account.Accounts[826079].Auth().Subscribe("aop.subscribe", []interface{}{}, true)
-	// client.Account.Accounts[976380].Auth().Subscribe("aop.subscribe", []interface{}{}, true)
-	// client.Account.Accounts[1929977].Auth().Subscribe("aop.subscribe", []interface{}{}, true)
-
-	// client.Account.Accounts[826079].Subscribe("orderbook.subscribe", []interface{}{"BTCUSD"}, false)
+func Subscribe(channel string, params []interface{}) {
 	// client.Account.Accounts[976380].Subscribe("trade.subscribe", []interface{}{"BTCUSD"}, false)
 	// client.Account.Accounts[1929977].Subscribe("market24h.subscribe", []interface{}{}, false)
-
 	// client.Account.Accounts[826079].Subscribe("trade.subscribe", []interface{}{"BTCUSD"}, false)
-	// client.Account.Accounts[826079].Subscribe("market24h.subscribe", []interface{}{}, false)
-
-	// client.Account.Auth().Subscribe("orderbook.subscribe", []interface{}{"BTCUSD"})
-	// client.Account.Subscribe("trade.subscribe", []interface{}{"BTCUSD"})
-	// for key, value := range client.Account.Accounts {
-	// 	fmt.Println(key)
-	// 	value.Auth().Subscribe("aop.subscribe", []interface{}{}, true)
-	// }
-	client.Account.Auth().Subscribe("aop.subscribe", []interface{}{}, true)
+	client.Account.Subscribe(channel, params, false)
 }
 
 // plays pingpong to keep socket connection alive
@@ -134,6 +121,31 @@ func (a *Account) Auth() *Account {
 	}()
 }
 
+func (a *Account) Listener() {
+	if a.receiver != nil {
+		return
+	}
+
+	a.receiver = make(chan []byte, 100)
+
+	go func() {
+		for {
+			message := <-a.receiver
+			client.handler(message, a)
+
+			// need a message handler
+			// handler can be run in a go routine
+			// many will routines will be spend up to
+			// handle many incoming messages
+			// to prevent any blocking
+			// implement a counter to maintain order
+			// of an incoming message.
+			// need a channel to kill listener and break from loop
+			// and to close all account channels.
+		}
+	}()
+}
+
 // Subscribe -> allows account to make a new subscribtion channel if not at max capacity
 func (a *Account) Subscribe(method string, params []interface{}, auth bool) *Account {
 
@@ -177,6 +189,37 @@ func (a *Account) Subscribe(method string, params []interface{}, auth bool) *Acc
 	}()
 
 	return a
+}
+
+func (Conn *Client) activeAccount(message []byte) *Account {
+	data := parseMessage(message)
+	for {
+		switch v := data.(type) {
+		case map[string]interface{}:
+			if val, ok := v["position_info"]; ok {
+				data = val
+			} else if val, ok := v["accounts"]; ok {
+				data = val
+			} else if val, ok := v["userID"]; ok {
+				data = val
+			}
+
+		case []interface{}:
+			data = v[0]
+
+		case string:
+			userID, err := strconv.Atoi(v)
+			if err != nil {
+				fmt.Println("error")
+				return nil
+			}
+			return Conn.Account.Accounts[int64(userID)]
+
+		case float64:
+			userID := v
+			return Conn.Account.Accounts[int64(userID)]
+		}
+	}
 }
 
 // Subscribe -> returns an available socket connection so Account can make a subscription channel or returns none if  at max capacity.
@@ -256,6 +299,81 @@ func (Conn *Client) Connect() (int, *Socket) {
 	}
 
 	return -1, nil
+}
+
+func parseMessage(message []byte) interface{} {
+	var msg map[string]interface{}
+	err := json.Unmarshal(message, &msg)
+	if err != nil {
+		panic("NOO")
+	}
+
+	// userID := int64(msg["accounts"].([]interface{})[0].(map[string]interface{})["userID"].(float64))
+
+	return msg
+}
+
+func result(message []byte) string {
+	data := parseMessage(message)
+
+	for {
+		switch v := data.(type) {
+
+		case map[string]interface{}:
+			if val, ok := v["result"]; ok {
+				data = val
+			} else if val, ok := v["status"]; ok {
+				data = val
+			}
+
+		case string:
+			return v
+		default:
+			return "failure"
+		}
+	}
+}
+
+func Handler(handle func(message []byte, account *Account)) {
+	client.handler = handle
+}
+
+func Handle(message []byte, account *Account) {
+	response := new(Response)
+	response.data = message
+	JSON(response)
+	data, err := json.MarshalIndent(response.output, "", "  ")
+	if err != nil {
+		panic("yike")
+	}
+	fmt.Println("\n from account listener: \n", account.ID, string(data))
+}
+
+// not relevent function yet.
+func Message(msg []byte) {
+	if strings.Contains(string(msg), "{\"error\"") {
+
+	} else if strings.Contains(string(msg), "{\"book\"") {
+
+	} else if strings.Contains(string(msg), "{\"trades\"") {
+
+	} else if strings.Contains(string(msg), "{\"kline\"") {
+
+	} else if strings.Contains(string(msg), "{\"accounts\"") {
+
+	} else if strings.Contains(string(msg), "{\"market24h\"") {
+
+	} else if strings.Contains(string(msg), "{\"id\"") {
+
+	} else if strings.Contains(string(msg), "{\"result\"") {
+
+	} else if strings.Contains(string(msg), "{\"status\"") {
+
+	}
+}
+
+func Run() {
+	client.Account.Listener()
 }
 
 // // The message types are defined in RFC 6455, section 11.8.

@@ -28,16 +28,6 @@ func (r *Response) HandleResponse(handler func(res *Response)) *Response {
 	return r
 }
 
-func JSON(res *Response) {
-	var data map[string]interface{}
-	err := json.Unmarshal(res.data, &data)
-	if err != nil {
-		panic("NOO")
-	}
-
-	res.output = data
-}
-
 func (a *Account) Send(method, path string, query map[string]string, body map[string]interface{}) *Response {
 	request := new(Request)
 	response := new(Response)
@@ -51,18 +41,12 @@ func (a *Account) Send(method, path string, query map[string]string, body map[st
 	return response
 }
 
-func parseMessage(message []byte) interface{} {
-	var msg map[string]interface{}
-	err := json.Unmarshal(message, &msg)
+func JSON(res *Response) {
+	var data map[string]interface{}
+	err := json.Unmarshal(res.data, &data)
 	if err != nil {
 		panic("NOO")
 	}
 
-	// userID := int64(msg["accounts"].([]interface{})[0].(map[string]interface{})["userID"].(float64))
-
-	return msg
-}
-
-func hasAccounts() bool {
-	return true
+	res.output = data
 }
