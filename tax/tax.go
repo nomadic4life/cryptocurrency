@@ -110,14 +110,14 @@ func (t table) filter(properties []string) []string {
 	return results
 }
 
-// commits -> changed type names to reflect their purpose more accuretly
+// just moving around list kinda based on some subjective priority
 
 // need TODO:
+// -> need to fix bugs
 // -> need to test on gains and losses <- this
+// -> Read / Write JSON Data
 // -> complete formatting
 // -> implement tests
-// -> need to fix bugs
-// -> Read / Write JSON Data
 // -> clean up of names, prints, comments, code layout
 // -> refactor code, enqueue / dequeue, round calculations, inport / exports, other?
 // -> alternative cost basis implementation ex.> specific identification
